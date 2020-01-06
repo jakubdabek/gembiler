@@ -1,0 +1,85 @@
+WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
+COMMENT = _{ "[" ~ (!"]" ~ ANY)* ~ "]"}
+
+pidentifier = @{ (ASCII_ALPHA_LOWER | "_")+ }
+num = @{ ASCII_DIGIT+ }
+
+program = { SOI ~ program_text ~ EOI }
+
+program_text = {
+    "DECLARE" ~ declarations ~ "BEGIN" ~ commands ~ "END"
+    | "BEGIN" ~ commands ~ "END"
+}
+
+declarations = {
+    declaration ~ ("," ~ declaration)*
+    | declaration
+}
+
+arr_decl = { pidentifier ~ "(" ~ num ~ ":" ~ num ~ ")" }
+var_decl = { pidentifier }
+
+declaration = {
+    arr_decl
+    | var_decl
+}
+
+commands = { command+ }
+
+cmd_ifelse = { "IF" ~ condition ~ "THEN" ~ commands ~ "ELSE" ~ commands ~ "ENDIF" }
+cmd_if = { "IF" ~ condition ~ "THEN" ~ commands ~ "ENDIF" }
+cmd_while = { "WHILE" ~ condition ~ "DO" ~ commands ~ "ENDWHILE" }
+cmd_do = { "DO" ~ condition ~ "WHILE" ~ commands ~ "ENDDO" }
+cmd_step = { "DOWN"? ~ "TO"}
+cmd_for = { "FOR" ~ pidentifier ~ "FROM" ~ value ~ cmd_step ~ value ~ "DO" ~ commands ~ "ENDFOR" }
+cmd_read = { "READ" ~ identifier ~ ";"}
+cmd_write = { "WRITE" ~ value ~ ";"}
+cmd_assign = { identifier ~ "ASSIGN" ~ expression ~ ";" }
+
+command = {
+    cmd_ifelse
+    | cmd_if
+    | cmd_while
+    | cmd_do
+    | cmd_for
+    | cmd_read
+    | cmd_write
+    | cmd_assign
+}
+
+exprop = {
+    "PLUS"
+    | "MINUS"
+    | "TIMES"
+    | "DIV"
+    | "MOD"
+}
+
+expression = {
+    value ~ exprop ~ value
+    | value
+}
+
+relop = {
+    "EQ"
+    | "NEQ"
+    | "LEQ"
+    | "LE"
+    | "GEQ"
+    | "GE"
+}
+
+condition = {
+    value ~ relop ~ value
+}
+
+value = {
+    num
+    | identifier
+}
+
+identifier = {
+    pidentifier ~ "(" ~ pidentifier ~ ")"
+    | pidentifier ~ "(" ~ num ~ ")"
+    | pidentifier
+}

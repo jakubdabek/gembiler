@@ -2,8 +2,10 @@ extern crate pest;
 #[macro_use]
 extern crate pest_derive;
 
+mod ast;
+
 use pest::Parser;
-use std::fs;
+use std::{fs, error::Error};
 
 #[derive(Parser)]
 #[grammar = "program.pest"]
@@ -16,10 +18,23 @@ pub fn debug_file(filename: &str) {
     println!("Result for {}: {:?}", filename, program);
 }
 
+type AstResult = Result<ast::Program, Box<dyn Error>>;
+
+pub fn parse_file<P: AsRef<std::path::Path>>(path: P) -> AstResult {
+    let program_text = fs::read_to_string(path)?;
+    parse_ast(&program_text)
+}
+
+pub fn parse_ast(text: &str) -> AstResult {
+    Ok(ast::Program { declarations: None, commands: vec![] })
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn it_works() {
-        assert_eq!(2 + 2, 4);
+        assert_eq!(parse_ast("").unwrap(), ast::Program { declarations: None, commands: vec![] });
     }
 }

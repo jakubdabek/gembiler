@@ -11,12 +11,12 @@ pub fn create_program(text: &str) -> Result<Vec<Instruction>, pest::error::Error
     let mut assembler: Pairs<Rule> = AssemblerParser::parse(Rule::assembler, text)?;
 
     let instructions = assembler.next().unwrap().into_inner()
-        .inspect(|pair| println!("{:?}", pair))
+        // .inspect(|pair| println!("{:?}", pair))
         .filter(|pair| { let r = pair.as_rule();  r != Rule::comment && r != Rule::EOI })
         .map(|pair| {
             let mut pairs = pair.into_inner();
             let instr = pairs.next().unwrap();
-            let rule = instr.as_rule().clone();
+            let rule = instr.as_rule();
             let get_index = || instr.into_inner().next().unwrap().as_str().parse().unwrap();
             match rule {
                 Rule::get => Instruction::Get,

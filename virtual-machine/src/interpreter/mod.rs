@@ -1,27 +1,30 @@
+#![allow(dead_code)]
+
 use crate::instruction::Instruction;
 use std::collections::BTreeMap;
-use std::io::{self, BufRead, Write};
-use std::convert::TryInto;
-use std::fmt::{Debug, Formatter, Write as _, Error};
-use std::str::FromStr;
-use std::rc::Rc;
-use std::cell::RefCell;
 
 #[cfg(feature = "bignum")]
 use num_bigint::{BigInt, Sign, RandBigInt};
 #[cfg(feature = "bignum")]
 use num_traits::cast::ToPrimitive;
+use std::rc::Rc;
+use std::cell::RefCell;
+use crate::interpreter::world::World;
+use std::fmt::{Debug, Formatter};
+use std::fmt;
+use std::convert::TryInto;
 
-const UNINITIALIZED_ERROR: &str = "access to uninitialized memory";
-const INVALID_NUMBER_FORMAT_ERROR: &str = "invalid number format";
+const UNINITIALIZED_MEMORY_ACCESS: &str = "access to uninitialized memory";
 
 #[cfg(not(feature = "bignum"))]
-type MemoryValue = i64;
+pub type MemoryValue = i64;
 #[cfg(feature = "bignum")]
-type MemoryValue = BigInt;
+pub type MemoryValue = BigInt;
 
 type Memory = BTreeMap<i64, MemoryValue>;
 type IResult = Result<(), &'static str>;
+
+pub mod world;
 
 fn shift(a: &MemoryValue, b: &MemoryValue) -> MemoryValue {
     #[cfg(feature = "bignum")] {
@@ -33,103 +36,17 @@ fn shift(a: &MemoryValue, b: &MemoryValue) -> MemoryValue {
     }
 
     #[cfg(not(feature = "bignum"))] {
-        if b > &0 {
-            a << b
-        } else if b < &0 {
-            a >> -b
-        } else {
-            *a
+        match b.signum() {
+            1 => a << b,
+            -1 => a >> -b,
+            0 => *a,
+            _ => unreachable!(),
         }
-    }
-}
-
-pub trait World {
-    fn get(&mut self) -> Result<MemoryValue, &'static str>;
-    fn put(&mut self, val: &MemoryValue);
-    fn log(&mut self, message: &str);
-}
-
-pub struct ConsoleWorld {
-    verbose: bool,
-}
-
-impl ConsoleWorld {
-    pub fn new(verbose: bool) -> ConsoleWorld {
-        ConsoleWorld {
-            verbose,
-        }
-    }
-}
-
-fn parse_line<F: FromStr>() -> Result<F, F::Err> {
-    let mut buf = String::new();
-    io::stdin().lock().read_line(&mut buf).expect("error reading stdin");
-
-    buf.trim_end_matches('\n').parse()
-}
-
-impl World for ConsoleWorld {
-    fn get(&mut self) -> Result<MemoryValue, &'static str> {
-        print!("> "); io::stdout().flush().unwrap();
-        parse_line().map_err(|_| INVALID_NUMBER_FORMAT_ERROR)
-    }
-
-    fn put(&mut self, val: &MemoryValue) {
-        println!("{}", val);
-    }
-
-    fn log(&mut self, message: &str) {
-        if self.verbose {
-            eprintln!("{}", message);
-        }
-    }
-}
-
-pub struct MemoryWorld {
-    inputs: Vec<MemoryValue>,
-    outputs: Vec<MemoryValue>,
-    logs: Vec<String>,
-}
-
-impl MemoryWorld {
-    pub fn new(inputs: Vec<MemoryValue>) -> MemoryWorld {
-        MemoryWorld {
-            inputs,
-            outputs: vec![],
-            logs: vec![],
-        }
-    }
-
-    pub fn output(&self) -> String {
-        let mut buf = String::with_capacity(self.outputs.len() * 8);
-        for val in &self.outputs {
-            writeln!(&mut buf, "{}", val).expect("writing to string failed");
-        }
-
-        buf
-    }
-}
-
-impl World for MemoryWorld {
-    fn get(&mut self) -> Result<MemoryValue, &'static str> {
-        if let Some(val) = self.inputs.pop() {
-            Ok(val)
-        } else {
-            Err("empty world input")
-        }
-    }
-
-    fn put(&mut self, val: &MemoryValue) {
-        self.outputs.push(val.clone());
-    }
-
-    fn log(&mut self, message: &str) {
-        self.logs.push(message.to_owned());
     }
 }
 
 pub struct Interpreter {
-    world: Rc<RefCell<dyn World>>,
+    world: Rc<RefCell<dyn World<MemoryValue>>>,
     memory: Memory,
     cost: u64,
     instr_ptr: usize,
@@ -137,7 +54,7 @@ pub struct Interpreter {
 }
 
 impl Debug for Interpreter {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f, "Interpreter {{")?;
         writeln!(f, "    memory: {:?}", self.memory)?;
         writeln!(f, "    {}: {:?}", self.instr_ptr, self.program.get(self.instr_ptr))?;
@@ -156,7 +73,7 @@ fn random_memory_value() -> MemoryValue {
 }
 
 impl Interpreter {
-    pub fn new(world: Rc<RefCell<dyn World>>, program: Vec<Instruction>) -> Interpreter {
+    pub fn new(world: Rc<RefCell<dyn World<MemoryValue>>>, program: Vec<Instruction>) -> Interpreter {
         Interpreter {
             world,
             memory: {
@@ -175,7 +92,7 @@ impl Interpreter {
     }
 
     fn get_initialized(&self, index: i64) -> Result<&MemoryValue, &'static str> {
-        self.memory.get(&index).ok_or(UNINITIALIZED_ERROR)
+        self.memory.get(&index).ok_or(UNINITIALIZED_MEMORY_ACCESS)
     }
 
     fn assign_indirect(&mut self, index: i64, indirect_index: i64) -> IResult {
@@ -199,7 +116,7 @@ impl Interpreter {
         let value = self.get_initialized(index)?;
         let new_value = f(value);
         self.log(|| format!("mutate: [{}] <- f({})", index, value));
-        self.memory.insert(index, new_value.clone());
+        self.memory.insert(index, new_value);
 
         Ok(())
     }
@@ -209,7 +126,7 @@ impl Interpreter {
         let value = self.get_initialized(value_index)?;
         let new_value = f(acc_value, value);
         self.log(|| format!("mutate_bin: [{}] <- f({}, {})", index, acc_value, value));
-        self.memory.insert(index, new_value.clone());
+        self.memory.insert(index, new_value);
 
         Ok(())
     }
@@ -269,13 +186,13 @@ impl Interpreter {
                 },
                 Instruction::Inc => {
                     self.cost += 1;
-                    self.log(|| format!("INC"));
+                    self.log(|| "INC".to_owned());
                     self.mutate(0, |a| a + 1)?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Dec => {
                     self.cost += 1;
-                    self.log(|| format!("DEC"));
+                    self.log(|| "DEC".to_owned());
                     self.mutate(0, |a| a - 1)?;
                     self.instr_ptr += 1;
                 },

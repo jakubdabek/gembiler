@@ -10,13 +10,18 @@
       <sourceFolder url="file://$MODULE_DIR$/parser/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/parser/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/parser/benches" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/virtual_machine/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/virtual_machine/examples" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/virtual_machine/tests" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/virtual_machine/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/virtual-machine/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/virtual-machine/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/virtual-machine/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/virtual-machine/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/virtual-machine/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/virtual-machine/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/virtual-machine/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/virtual-machine/benches" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/parser/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
-      <excludeFolder url="file://$MODULE_DIR$/virtual_machine/target" />
+      <excludeFolder url="file://$MODULE_DIR$/virtual-machine/target" />
+      <excludeFolder url="file://$MODULE_DIR$/virtual-machine/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

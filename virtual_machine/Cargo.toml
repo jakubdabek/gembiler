@@ -1,13 +1,15 @@
 [package]
-name = "gembiler"
+name = "virtual_machine"
 version = "0.1.0"
 authors = ["Jakub Dąbek <jakub.dabek@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[workspace]
-members = ["./parser", "./virtual_machine"]
+[features]
+bignum = ["num-bigint"]
 
 [dependencies]
-parser = { path = "./parser" }
+pest = "2.1"
+pest_derive = "2.1"
+rand = "0.7"
+num-bigint = { version = "0.2", optional = true}

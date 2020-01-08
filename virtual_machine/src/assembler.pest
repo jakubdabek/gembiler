@@ -1,0 +1,49 @@
+WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
+comment = @{ "#" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
+
+assembler = {
+    SOI ~
+    (
+        comment
+        | instruction ~ comment?
+    )* ~
+    EOI
+}
+
+instruction = {
+    get
+    | put
+    | loadi
+    | load
+    | storei
+    | store
+    | add
+    | sub
+    | shift
+    | inc
+    | dec
+    | jump
+    | jpos
+    | jzero
+    | jneg
+    | halt
+}
+
+num = @{ ASCII_DIGIT+ }
+
+get = { "GET" }
+put = { "PUT" }
+load = { "LOAD" ~ num }
+loadi = { "LOADI" ~ num }
+store = { "STORE" ~ num }
+storei = { "STOREI" ~ num }
+add = { "ADD" ~ num }
+sub = { "SUB" ~ num }
+shift = { "SHIFT" ~ num }
+inc = { "INC" }
+dec = { "DEC" }
+jump = { "JUMP" ~ num }
+jpos = { "JPOS" ~ num }
+jzero = { "JZERO" ~ num }
+jneg = { "JNEG" ~ num }
+halt = { "HALT" }

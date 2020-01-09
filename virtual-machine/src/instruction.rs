@@ -17,3 +17,27 @@ pub enum Instruction {
     Jneg(u64),
     Halt,
 }
+
+impl Instruction {
+    pub fn cost(&self) -> u64 {
+        use Instruction::*;
+        match self {
+            Get => 100,
+            Put => 100,
+            Load(_) => 10,
+            Loadi(_) => 20,
+            Store(_) => 10,
+            Storei(_) => 20,
+            Add(_) => 10,
+            Sub(_) => 10,
+            Shift(_) => 5,
+            Inc => 1,
+            Dec => 1,
+            Jump(_) => 1,
+            Jpos(_) => 1,
+            Jzero(_) => 1,
+            Jneg(_) => 1,
+            Halt => 0,
+        }
+    }
+}

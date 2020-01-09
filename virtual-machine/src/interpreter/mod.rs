@@ -13,17 +13,34 @@ use crate::interpreter::world::World;
 use std::fmt::{self, Debug, Formatter};
 use std::convert::TryInto;
 
-const UNINITIALIZED_MEMORY_ACCESS: &str = "access to uninitialized memory";
+#[derive(Debug, PartialEq, Eq)]
+pub enum Error {
+    UninitializedMemoryAccess,
+    InstructionPointerOutOfBound,
+    WorldError(world::Error),
+}
+
+impl From<world::Error> for Error {
+    fn from(err: world::Error) -> Self {
+        Error::WorldError(err)
+    }
+}
 
 #[cfg(not(feature = "bignum"))]
 pub type MemoryValue = i64;
 #[cfg(feature = "bignum")]
 pub type MemoryValue = BigInt;
 
+pub fn memval(v: i64) -> MemoryValue {
+    v.into()
+}
+
 type Memory = BTreeMap<i64, MemoryValue>;
-type IResult = Result<(), &'static str>;
+type IResult = Result<(), Error>;
 
 pub mod world;
+#[cfg(test)]
+mod tests;
 
 fn shift(a: &MemoryValue, b: &MemoryValue) -> MemoryValue {
     #[cfg(feature = "bignum")] {
@@ -90,8 +107,8 @@ impl Interpreter {
         self.world.borrow_mut().log(args);
     }
 
-    fn get_initialized(&self, index: i64) -> Result<&MemoryValue, &'static str> {
-        self.memory.get(&index).ok_or(UNINITIALIZED_MEMORY_ACCESS)
+    fn get_initialized(&self, index: i64) -> Result<&MemoryValue, Error> {
+        self.memory.get(&index).ok_or(Error::UninitializedMemoryAccess)
     }
 
     fn assign_indirect(&mut self, index: i64, indirect_index: i64) -> IResult {
@@ -130,77 +147,88 @@ impl Interpreter {
         Ok(())
     }
 
-    pub fn interpret_single(&mut self) -> Result<bool, &'static str> {
+    pub fn interpret(&mut self) -> Result<u64, Error> {
+        loop {
+            match self.interpret_single() {
+                Ok(true) => {},
+                Ok(false) => return Ok(self.cost),
+                Err(error) => return Err(error),
+            }
+        }
+    }
+
+    pub fn interpret_single(&mut self) -> Result<bool, Error> {
         if let Some(instr) = self.program.get(self.instr_ptr) {
+            let cost = instr.cost();
             match *instr {
                 Instruction::Get => {
-                    self.cost += 100;
+                    self.cost += cost;
                     let value = self.world.borrow_mut().get()?;
                     self.log(format_args!("{:?}", value));
                     self.memory.insert(0, value);
                     self.instr_ptr += 1;
                 },
                 Instruction::Put => {
-                    self.cost += 100;
+                    self.cost += cost;
                     self.world.borrow_mut().put(&self.memory[&0]);
                     self.instr_ptr += 1;
                 },
                 Instruction::Load(arg) => {
-                    self.cost += 10;
+                    self.cost += cost;
                     self.assign(0, arg.try_into().unwrap())?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Loadi(arg) => {
-                    self.cost += 20;
+                    self.cost += cost;
                     self.assign_indirect(0, arg.try_into().unwrap())?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Store(arg) => {
-                    self.cost += 10;
+                    self.cost += cost;
                     self.assign(arg.try_into().unwrap(), 0)?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Storei(arg) => {
-                    self.cost += 20;
+                    self.cost += cost;
                     self.assign(0, arg.try_into().unwrap())?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Add(arg) => {
-                    self.cost += 10;
+                    self.cost += cost;
                     self.log(format_args!("ADD {}", arg));
                     self.mutate_bin(0, arg.try_into().unwrap(), |a, b| a + b)?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Sub(arg) => {
-                    self.cost += 10;
+                    self.cost += cost;
                     self.log(format_args!("SUB {}", arg));
                     self.mutate_bin(0, arg.try_into().unwrap(), |a, b| a - b)?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Shift(arg) => {
-                    self.cost += 5;
+                    self.cost += cost;
                     self.log(format_args!("SHIFT {}", arg));
                     self.mutate_bin(0, arg.try_into().unwrap(), shift)?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Inc => {
-                    self.cost += 1;
+                    self.cost += cost;
                     self.log(format_args!("INC"));
                     self.mutate(0, |a| a + 1)?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Dec => {
-                    self.cost += 1;
+                    self.cost += cost;
                     self.log(format_args!("DEC"));
                     self.mutate(0, |a| a - 1)?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Jump(arg) => {
-                    self.cost += 1;
+                    self.cost += cost;
                     self.instr_ptr = arg.try_into().unwrap();
                 },
                 Instruction::Jpos(arg) => {
-                    self.cost += 1;
+                    self.cost += cost;
                     if self.memory[&0] > 0.into() {
                         self.instr_ptr = arg.try_into().unwrap();
                     } else {
@@ -208,7 +236,7 @@ impl Interpreter {
                     }
                 },
                 Instruction::Jzero(arg) => {
-                    self.cost += 1;
+                    self.cost += cost;
                     if self.memory[&0] == 0.into() {
                         self.instr_ptr = arg.try_into().unwrap();
                     } else {
@@ -216,7 +244,7 @@ impl Interpreter {
                     }
                 },
                 Instruction::Jneg(arg) => {
-                    self.cost += 1;
+                    self.cost += cost;
                     if self.memory[&0] < 0.into() {
                         self.instr_ptr = arg.try_into().unwrap();
                     } else {
@@ -228,7 +256,7 @@ impl Interpreter {
 
             Ok(true)
         } else {
-            Err("instruction pointer out of bounds")
+            Err(Error::InstructionPointerOutOfBound)
         }
     }
 

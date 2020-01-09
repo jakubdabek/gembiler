@@ -10,8 +10,7 @@ use num_traits::cast::ToPrimitive;
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::interpreter::world::World;
-use std::fmt::{Debug, Formatter};
-use std::fmt;
+use std::fmt::{self, Debug, Formatter};
 use std::convert::TryInto;
 
 const UNINITIALIZED_MEMORY_ACCESS: &str = "access to uninitialized memory";
@@ -87,8 +86,8 @@ impl Interpreter {
         }
     }
 
-    fn log<F: Fn() -> String>(&self, f: F) {
-        self.world.borrow_mut().log(&f());
+    fn log(&self, args: fmt::Arguments) {
+        self.world.borrow_mut().log(args);
     }
 
     fn get_initialized(&self, index: i64) -> Result<&MemoryValue, &'static str> {
@@ -107,7 +106,7 @@ impl Interpreter {
 
     fn assign(&mut self, index: i64, value_index: i64) -> IResult {
         let value = self.get_initialized(value_index)?.clone();
-        self.log(|| format!("assign: [{}] <- {}", index, &value));
+        self.log(format_args!("assign: [{}] <- {}", index, &value));
         self.memory.insert(index, value);
         Ok(())
     }
@@ -115,7 +114,7 @@ impl Interpreter {
     fn mutate<F: Fn(&MemoryValue) -> MemoryValue>(&mut self, index: i64, f: F) -> IResult {
         let value = self.get_initialized(index)?;
         let new_value = f(value);
-        self.log(|| format!("mutate: [{}] <- f({})", index, value));
+        self.log(format_args!("mutate: [{}] <- f({})", index, value));
         self.memory.insert(index, new_value);
 
         Ok(())
@@ -125,7 +124,7 @@ impl Interpreter {
         let acc_value = self.get_initialized(index)?;
         let value = self.get_initialized(value_index)?;
         let new_value = f(acc_value, value);
-        self.log(|| format!("mutate_bin: [{}] <- f({}, {})", index, acc_value, value));
+        self.log(format_args!("mutate_bin: [{}] <- f({}, {})", index, acc_value, value));
         self.memory.insert(index, new_value);
 
         Ok(())
@@ -137,7 +136,7 @@ impl Interpreter {
                 Instruction::Get => {
                     self.cost += 100;
                     let value = self.world.borrow_mut().get()?;
-                    self.log(|| format!("{:?}", value));
+                    self.log(format_args!("{:?}", value));
                     self.memory.insert(0, value);
                     self.instr_ptr += 1;
                 },
@@ -168,31 +167,31 @@ impl Interpreter {
                 },
                 Instruction::Add(arg) => {
                     self.cost += 10;
-                    self.log(|| format!("ADD {}", arg));
+                    self.log(format_args!("ADD {}", arg));
                     self.mutate_bin(0, arg.try_into().unwrap(), |a, b| a + b)?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Sub(arg) => {
                     self.cost += 10;
-                    self.log(|| format!("SUB {}", arg));
+                    self.log(format_args!("SUB {}", arg));
                     self.mutate_bin(0, arg.try_into().unwrap(), |a, b| a - b)?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Shift(arg) => {
                     self.cost += 5;
-                    self.log(|| format!("SHIFT {}", arg));
+                    self.log(format_args!("SHIFT {}", arg));
                     self.mutate_bin(0, arg.try_into().unwrap(), shift)?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Inc => {
                     self.cost += 1;
-                    self.log(|| "INC".to_owned());
+                    self.log(format_args!("INC"));
                     self.mutate(0, |a| a + 1)?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Dec => {
                     self.cost += 1;
-                    self.log(|| "DEC".to_owned());
+                    self.log(format_args!("DEC"));
                     self.mutate(0, |a| a - 1)?;
                     self.instr_ptr += 1;
                 },

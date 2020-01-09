@@ -2,7 +2,7 @@ use std::str::FromStr;
 use std::io;
 use std::io::{Write as _, BufRead as _};
 use std::marker::PhantomData;
-use std::fmt::Display;
+use std::fmt::{self, Display};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -11,7 +11,7 @@ const INVALID_NUMBER_FORMAT: &str = "invalid number format";
 pub trait World<T> {
     fn get(&mut self) -> Result<T, &'static str>;
     fn put(&mut self, val: &T);
-    fn log(&mut self, message: &str);
+    fn log(&mut self, message: fmt::Arguments);
 }
 
 pub fn upcast<T, W: World<T> + 'static>(world: Rc<RefCell<W>>) -> Rc<RefCell<dyn World<T>>> {
@@ -49,7 +49,7 @@ impl <T: FromStr + Display> World<T> for ConsoleWorld<T> {
         println!("{}", val);
     }
 
-    fn log(&mut self, message: &str) {
+    fn log(&mut self, message: fmt::Arguments) {
         if self.verbose {
             eprintln!("{}", message);
         }
@@ -75,8 +75,8 @@ impl <T> MemoryWorld<T> {
         &self.outputs
     }
 
-    pub fn logs(&self) -> &[String] {
-        &self.logs
+    pub fn logs(&self) -> impl Iterator<Item=&str> {
+        self.logs.iter().map(|s| s.as_str())
     }
 }
 
@@ -93,7 +93,7 @@ impl <T: Clone> World<T> for MemoryWorld<T> {
         self.outputs.push(val.clone());
     }
 
-    fn log(&mut self, message: &str) {
-        self.logs.push(message.to_owned());
+    fn log(&mut self, message: fmt::Arguments) {
+        self.logs.push(message.to_string());
     }
 }

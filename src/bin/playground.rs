@@ -47,6 +47,37 @@ fn main() {
     f();
 
     // println!("{:?}", bruh);
+    let mut i = 123i32;
+    // foo(&mut i);
+    bar(&mut i);
+    println!("{}", i);
+
+    let mut i = Box::new(123);
+    foo(&mut i);
+    bar(&mut i);
+    println!("{}", i);
+}
+
+use std::borrow::BorrowMut;
+
+fn foo<T: AsMut<i32>>(a: &mut T) {
+    *a.as_mut() += 1;
+}
+
+fn bar<T: BorrowMut<i32>>(a: &mut T) {
+    *a.borrow_mut() += 1;
+}
+
+trait MyInto<T>: Sized {
+    fn into(self) -> T;
+}
+
+trait MyFrom<T>: Sized {
+    fn from(t: T) -> Self;
+}
+
+impl <T, U> MyFrom<U> for T where U: MyInto<T> {
+    fn from(u: U) -> T { u.into() }
 }
 
 #[cfg(test)]

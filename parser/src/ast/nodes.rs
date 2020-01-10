@@ -9,7 +9,7 @@ pub type Declarations = Vec<Declaration>;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Declaration {
     Var { name: String },
-    Array { name: String, start: i32, end: i32 },
+    Array { name: String, start: i64, end: i64 },
 }
 
 pub type Commands = Vec<Command>;
@@ -20,7 +20,7 @@ pub enum Command {
     If { condition: Condition, positive: Commands },
     While { condition: Condition, commands: Commands },
     Do { commands: Commands, condition: Condition },
-    For { counter: String, ascending: bool, from: Value, to: Value },
+    For { counter: String, ascending: bool, from: Value, to: Value, commands: Commands },
     Read { target: Identifier },
     Write { value: Value },
     Assign { target: Identifier, expr: Expression },
@@ -47,7 +47,7 @@ pub struct Condition {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
-    Num(i32),
+    Num(i64),
     Identifier(Identifier)
 }
 

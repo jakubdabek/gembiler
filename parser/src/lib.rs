@@ -196,12 +196,14 @@ fn parse_for(mut pairs: Pairs<Rule>) -> Command {
         _ => unreachable!(),
     };
     let to = parse_value(pairs.next().unwrap().into_inner());
+    let commands = parse_commands(pairs.next().unwrap().into_inner());
 
     Command::For {
         counter,
         from,
         ascending,
         to,
+        commands,
     }
 }
 
@@ -390,6 +392,134 @@ mod tests {
                         }
                     ],
                 }
+            ],
+        };
+
+        assert_eq!(parsed.unwrap(), expected);
+    }
+
+    #[test]
+    fn program1() {
+        let text = r#"
+            [ Eratostenes' sieve ]
+            DECLARE
+                n, j, sieve(2:100)
+            BEGIN
+                n ASSIGN 100;
+                FOR i FROM n DOWNTO 2 DO
+                    sieve(i) ASSIGN 1;
+                ENDFOR
+                FOR i FROM 2 TO n DO
+                    IF sieve(i) NEQ 0 THEN
+                        j ASSIGN i PLUS i;
+                        WHILE j LEQ n DO
+                            sieve(j) ASSIGN 0;
+                            j ASSIGN j PLUS i;
+                        ENDWHILE
+                        WRITE i;
+                    ENDIF
+                ENDFOR
+            END
+        "#;
+
+        let parsed = parse_ast(text);
+
+        let var_n = Identifier::VarAccess { name: String::from("n") };
+        let var_j = Identifier::VarAccess { name: String::from("j") };
+        let temp_i = Identifier::VarAccess { name: String::from("i") };
+        let var_sieve = String::from("sieve");
+
+        let expected = ast::Program {
+            declarations: Some(vec![
+                Declaration::Var { name: String::from("n") },
+                Declaration::Var { name: String::from("j") },
+                Declaration::Array {
+                    name: String::from("sieve"),
+                    start: 2,
+                    end: 100,
+                },
+            ]),
+            commands: vec![
+                Command::Assign {
+                    target: var_n.clone(),
+                    expr: Expression::Simple {
+                        value: Value::Num(100),
+                    },
+                },
+                Command::For {
+                    counter: "i".to_string(),
+                    ascending: false,
+                    from: Value::Identifier(var_n.clone()),
+                    to: Value::Num(2),
+                    commands: vec![
+                        Command::Assign {
+                            target: Identifier::ArrAccess {
+                                name: var_sieve.clone(),
+                                index: String::from("i"),
+                            },
+                            expr: Expression::Simple {
+                                value: Value::Num(1),
+                            },
+                        },
+                    ],
+                },
+                Command::For {
+                    counter: "i".to_string(),
+                    ascending: true,
+                    from: Value::Num(2),
+                    to: Value::Identifier(var_n.clone()),
+                    commands: vec![
+                        Command::If {
+                            condition: Condition {
+                                left: Value::Identifier(Identifier::ArrAccess {
+                                    name: var_sieve.clone(),
+                                    index: String::from("i")
+                                }),
+                                op: RelOp::NEQ,
+                                right: Value::Num(0),
+                            },
+                            positive: vec![
+                                Command::Assign {
+                                    target: var_j.clone(),
+                                    expr: Expression::Compound {
+                                        left: Value::Identifier(temp_i.clone()),
+                                        op: ExprOp::Plus,
+                                        right: Value::Identifier(temp_i.clone()),
+                                    }
+                                },
+                                Command::While {
+                                    condition: Condition {
+                                        left: Value::Identifier(var_j.clone()),
+                                        op: RelOp::LEQ,
+                                        right: Value::Identifier(var_n.clone()),
+                                    },
+                                    commands: vec![
+                                        Command::Assign {
+                                            target: Identifier::ArrAccess {
+                                                name: var_sieve.clone(),
+                                                index: String::from("j"),
+                                            },
+                                            expr: Expression::Simple {
+                                                value: Value::Num(0),
+                                            },
+                                        },
+                                        Command::Assign {
+                                            target: var_j.clone(),
+                                            expr: Expression::Compound {
+                                                left: Value::Identifier(var_j.clone()),
+                                                op: ExprOp::Plus,
+                                                right: Value::Identifier(temp_i.clone()),
+                                            }
+                                        },
+                                    ],
+                                },
+                                Command::Write {
+                                    value: Value::Identifier(temp_i.clone())
+                                }
+                            ],
+                        }
+                    ],
+                },
             ],
         };
 

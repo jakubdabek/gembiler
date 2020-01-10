@@ -1,4 +1,15 @@
-use parser::debug_file;
+use parser::parse_file;
+
+pub mod code_generator;
+
+fn debug_file(path: &str) {
+    let program = parse_file(path);
+
+    match program {
+        Ok(program) => println!("{:?}", program),
+        Err(err) => println!("{}", err),
+    }
+}
 
 fn main() {
     debug_file("test-data/program0.imp");

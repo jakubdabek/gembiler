@@ -11,3 +11,7 @@ members = ["./parser", "./virtual-machine"]
 
 [dependencies]
 parser = { path = "./parser" }
+
+[[test]]
+name = "verifier"
+path = "src/tests/verifier.rs"

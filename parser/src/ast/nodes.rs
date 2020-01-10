@@ -12,6 +12,16 @@ pub enum Declaration {
     Array { name: String, start: i64, end: i64 },
 }
 
+impl Declaration {
+    pub fn name(&self) -> &str {
+        use Declaration::*;
+        match self {
+            Var { name } => name,
+            Array { name, .. } => name,
+        }
+    }
+}
+
 pub type Commands = Vec<Command>;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -58,3 +68,12 @@ pub enum Identifier {
     ArrConstAccess { name: String, index: i64 },
 }
 
+impl Identifier {
+    pub fn names(&self) -> Vec<&str> {
+        match self {
+            Identifier::VarAccess { name } => vec![name],
+            Identifier::ArrAccess { name, index } => vec![name, index],
+            Identifier::ArrConstAccess { name, .. } => vec![name],
+        }
+    }
+}

@@ -139,6 +139,20 @@ impl <T: Default, C: VisitorResult> VisitorResult for ResultCombineErr<T, C> {
     }
 }
 
+impl VisitorResult for () {
+    fn identity() -> Self {
+        ()
+    }
+
+    fn combine(self, _: Self) -> Self {
+        ()
+    }
+
+    fn combine_collection<I: IntoIterator<Item=Self>>(_: I) -> Self {
+        ()
+    }
+}
+
 pub trait Visitor: Sized {
     type Result: VisitorResult;
 

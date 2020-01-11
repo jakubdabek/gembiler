@@ -69,7 +69,15 @@ pub enum Identifier {
 }
 
 impl Identifier {
-    pub fn names(&self) -> Vec<&str> {
+    pub fn name(&self) -> &str {
+        match self {
+            Identifier::VarAccess { name } => name,
+            Identifier::ArrAccess { name, .. } => name,
+            Identifier::ArrConstAccess { name, .. } => name,
+        }
+    }
+
+    pub fn all_names(&self) -> Vec<&str> {
         match self {
             Identifier::VarAccess { name } => vec![name],
             Identifier::ArrAccess { name, index } => vec![name, index],

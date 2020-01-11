@@ -127,11 +127,11 @@ impl <T: Default, C: VisitorResult> VisitorResult for ResultCombineErr<T, C> {
     }
 
     fn combine(self, new: Self) -> Self {
-        if let Self(Err(c)) = self {
-            if let Self(Err(new)) = new {
+        if let Err(c) = self.into_result() {
+            if let Err(new) = new.into_result() {
                 ResultCombineErr::new_err(c.combine(new))
             } else {
-                new
+                Err(c).into()
             }
         } else {
             new

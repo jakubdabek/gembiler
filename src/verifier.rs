@@ -16,7 +16,7 @@ impl SemanticVerifier {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Error {
     InvalidArrayRange {
         name: String,
@@ -24,15 +24,26 @@ pub enum Error {
         end: i64
     },
     UndeclaredVariable { name: String },
+    ForCounterModification { name: String },
 }
 
 pub fn verify(program: Program) -> Result<(), Vec<Error>> {
     let mut verifier = SemanticVerifier::new();
     let result = program.accept(&mut verifier);
-    result.into_result().map_err(|v| v.into())
+    result.into_result().map_err(|v| v.into_vec())
 }
 
+impl SemanticVerifier {
+    fn get_global(&self, name: &str) -> Option<&Declaration> {
+        self.globals.iter().find(|&global| global.name() == name)
+    }
 
+    fn get_local(&self, name: &str) -> Option<&str> {
+        self.locals.iter()
+            .find(|&local| local == name)
+            .map(|s| s.as_str())
+    }
+}
 
 impl Visitor for SemanticVerifier {
     type Result = ResultCombineErr<(), VisitorResultVec<Error>>;
@@ -73,28 +84,44 @@ impl Visitor for SemanticVerifier {
     }
 
     fn visit_read_command(&mut self, target: &Identifier) -> Self::Result {
-        Self::Result::identity() // TODO
+        let target_result = self.visit(target);
+        if target_result.as_result().is_ok() {
+            let name = target.name();
+            if self.get_local(name).is_some() {
+                Err(vec![Error::ForCounterModification { name: name.to_owned() }].into()).into()
+            } else {
+                target_result
+            }
+        } else {
+            target_result
+        }
     }
 
     fn visit_assign_command(&mut self, target: &Identifier, expr: &Expression) -> Self::Result {
-        Self::Result::identity() // TODO
+        let target_result = self.visit(target);
+        let res = if target_result.as_result().is_ok() {
+            let name = target.name();
+            if self.get_local(name).is_some() {
+                Err(vec![Error::ForCounterModification { name: name.to_owned() }].into()).into()
+            } else {
+                target_result
+            }
+        } else {
+            target_result
+        };
+
+        res.combine(self.visit(expr))
     }
 
     fn visit_num_value(&mut self, num: i64) -> Self::Result {
+        // nothing to be done - allow anything
         Self::Result::identity()
     }
 
     fn visit_identifier(&mut self, identifier: &Identifier) -> Self::Result {
-        let results = identifier.names().into_iter().map(|name| {
-            self.locals.iter()
-                .find(|&local| name == local)
-                .map(|_| ())
-                .or_else(|| {
-                    self.globals
-                        .iter()
-                        .find(|&global| global.name() == name)
-                        .map(|_| ())
-                })
+        let results = identifier.all_names().into_iter().map(|name| {
+            self.get_global(name).map(|_| ())
+                .or_else(|| self.get_local(name).map(|_| ()))
                 .ok_or(vec![Error::UndeclaredVariable { name: name.to_owned() }].into())
                 .into()
         });

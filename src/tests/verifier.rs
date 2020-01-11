@@ -59,6 +59,7 @@ fn no_declarations_err_undeclared_first() {
     let result = verify(program);
     let expected_errors = vec![
         Error::UndeclaredVariable { name: String::from("a") },
+        Error::UndeclaredVariable { name: String::from("b") },
     ];
 
     assert_eq!(result, Err(expected_errors));

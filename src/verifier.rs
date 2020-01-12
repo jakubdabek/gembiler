@@ -27,7 +27,7 @@ pub enum Error {
     ForCounterModification { name: String },
 }
 
-pub fn verify(program: Program) -> Result<(), Vec<Error>> {
+pub fn verify(program: &Program) -> Result<(), Vec<Error>> {
     let mut verifier = SemanticVerifier::new();
     let result = program.accept(&mut verifier);
     result.into_result().map_err(|v| v.into_vec())
@@ -45,7 +45,7 @@ impl SemanticVerifier {
     }
 }
 
-impl Visitor for SemanticVerifier {
+impl <'a> Visitor for SemanticVerifier {
     type Result = ResultCombineErr<(), VisitorResultVec<Error>>;
 
     fn visit_declarations(&mut self, declarations: &Declarations) -> Self::Result {

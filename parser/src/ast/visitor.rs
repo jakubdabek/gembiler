@@ -1,4 +1,5 @@
 use crate::ast::*;
+use std::cell::RefCell;
 
 pub trait Visitable {
     fn accept<V: Visitor>(&self, visitor: &mut V) -> V::Result;
@@ -160,6 +161,15 @@ pub trait Visitor: Sized {
         visitable.accept(self)
     }
 
+    fn visit_collection<'a, V: Visitable + 'a, I: IntoIterator<Item=&'a V>>(&mut self, collection: I) -> Self::Result
+    where I::IntoIter: ExactSizeIterator {
+        let iter = collection.into_iter();
+        let mut results = Vec::with_capacity(iter.len());
+        for v in iter {
+            results.push(self.visit(v));
+        }
+        Self::Result::combine_collection(results)
+    }
 
     fn visit_program(&mut self, program: &Program) -> Self::Result {
         let res = if let Some(declarations) = &program.declarations {
@@ -172,7 +182,7 @@ pub trait Visitor: Sized {
     }
 
     fn visit_declarations(&mut self, declarations: &Declarations) -> Self::Result {
-        Self::Result::combine_collection(declarations.iter().map(|decl| self.visit(decl)))
+        self.visit_collection(declarations)
     }
 
     fn visit_declaration(&mut self, declaration: &Declaration) -> Self::Result;
@@ -218,7 +228,7 @@ pub trait Visitor: Sized {
     }
 
     fn visit_commands(&mut self, commands: &Commands) -> Self::Result {
-        Self::Result::combine_collection(commands.iter().map(|cmd| self.visit(cmd)))
+        self.visit_collection(commands)
     }
 
     fn visit_command(&mut self, command: &Command) -> Self::Result {

@@ -1,7 +1,5 @@
 use parser::parse_file;
 
-pub mod code_generator;
-
 fn debug_file(path: &str) {
     let program = parse_file(path);
 

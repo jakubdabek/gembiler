@@ -12,7 +12,7 @@ fn no_declarations_ok() {
         ],
     };
 
-    let result = verify(program);
+    let result = verify(&program);
 
     assert_eq!(result, Ok(()));
 }
@@ -30,7 +30,7 @@ fn no_declarations_err_undeclared() {
         ],
     };
 
-    let result = verify(program);
+    let result = verify(&program);
     let expected_errors = vec![
         Error::UndeclaredVariable { name: String::from("a") },
     ];
@@ -56,7 +56,7 @@ fn no_declarations_err_undeclared_all() {
         ],
     };
 
-    let result = verify(program);
+    let result = verify(&program);
     let expected_errors = vec![
         Error::UndeclaredVariable { name: String::from("a") },
         Error::UndeclaredVariable { name: String::from("b") },
@@ -86,7 +86,7 @@ fn no_declarations_for_ok() {
         ],
     };
 
-    let result = verify(program);
+    let result = verify(&program);
 
     assert_eq!(result, Ok(()));
 }
@@ -115,7 +115,7 @@ fn no_declarations_for_err() {
         ],
     };
 
-    let result = verify(program);
+    let result = verify(&program);
 
     let expected_errors = vec![
         Error::UndeclaredVariable { name: String::from("i") },
@@ -158,7 +158,7 @@ fn no_declarations_nested_for_ok() {
         ],
     };
 
-    let result = verify(program);
+    let result = verify(&program);
 
     assert_eq!(result, Ok(()));
 }
@@ -184,7 +184,7 @@ fn simple_declarations_ok() {
         ],
     };
 
-    let result = verify(program);
+    let result = verify(&program);
 
     assert_eq!(result, Ok(()));
 }
@@ -214,7 +214,7 @@ fn simple_declarations_err() {
         ],
     };
 
-    let result = verify(program);
+    let result = verify(&program);
     let expected_errors = vec![
         Error::UndeclaredVariable { name: String::from("b") },
     ];
@@ -250,7 +250,7 @@ fn arr_declarations_ok() {
         ],
     };
 
-    let result = verify(program);
+    let result = verify(&program);
 
     assert_eq!(result, Ok(()));
 }
@@ -275,7 +275,7 @@ fn arr_declarations_err() {
         ],
     };
 
-    let result = verify(program);
+    let result = verify(&program);
     let expected_errors = vec![
         Error::UndeclaredVariable { name: String::from("arr") },
         Error::UndeclaredVariable { name: String::from("arr") },
@@ -311,7 +311,7 @@ fn no_declarations_for_modification_err() {
         ],
     };
 
-    let result = verify(program);
+    let result = verify(&program);
 
     let expected_errors = vec![
         Error::ForCounterModification { name: String::from("i") },
@@ -355,7 +355,7 @@ fn no_declarations_nested_for_modification_err() {
         ],
     };
 
-    let result = verify(program);
+    let result = verify(&program);
 
     let expected_errors = vec![
         Error::ForCounterModification { name: String::from("i") },
@@ -406,7 +406,7 @@ fn for_complex_err() {
         ],
     };
 
-    let result = verify(program);
+    let result = verify(&program);
 
     let expected_errors = vec![
         Error::ForCounterModification { name: String::from("i") },

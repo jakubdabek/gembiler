@@ -14,7 +14,12 @@
       <sourceFolder url="file://$MODULE_DIR$/virtual-machine/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/virtual-machine/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/virtual-machine/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/playground/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/playground/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/playground/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/playground/benches" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/parser/target" />
+      <excludeFolder url="file://$MODULE_DIR$/playground/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/virtual-machine/target" />
     </content>

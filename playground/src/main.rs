@@ -31,7 +31,47 @@ impl <'a> ContainerContainer<'a> {
     }
 }
 
+use easybench::bench;
+use rand::prelude::*;
+
+
+fn flatmap(inp: &Vec<i64>) -> Vec<i64> {
+    inp.iter().flat_map(|elem| {
+        1..*elem
+    }).collect()
+}
+
+fn mutvec(inp: &Vec<i64>) -> Vec<i64> {
+    let mut vec = vec![];
+
+    for elem in inp {
+        for i in 1..*elem {
+            vec.push(i);
+        }
+    }
+
+    vec
+}
+
 fn main() {
     let mut container_container = ContainerContainer::new();
     container_container.add(5);
+
+    let mut v = vec![1,2,3,4,5];
+    let mut iter = v.iter_mut();
+    let v1 = iter.next().unwrap();
+    let v2 = iter.next().unwrap();
+
+    *v1 += 10;
+    *v2 += 10;
+
+    println!("{}{}", v1, v2);
+    println!("{:?}", v);
+
+    let mut rng = thread_rng();
+
+    let input: Vec<i64> = std::iter::repeat_with(|| rng.gen_range(1, 200)).take(50).collect();
+
+    println!("flatmap: {}", bench(|| flatmap(&input)));
+    println!("mutvec: {}", bench(|| mutvec(&input)));
 }

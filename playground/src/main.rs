@@ -33,6 +33,7 @@ impl <'a> ContainerContainer<'a> {
 
 use easybench::bench;
 use rand::prelude::*;
+use rand::distributions::Uniform;
 
 
 fn flatmap(inp: &Vec<i64>) -> Vec<i64> {
@@ -68,9 +69,10 @@ fn main() {
     println!("{}{}", v1, v2);
     println!("{:?}", v);
 
-    let mut rng = thread_rng();
+    let rng = thread_rng();
+    let dist = Uniform::new_inclusive(1, 200);
 
-    let input: Vec<i64> = std::iter::repeat_with(|| rng.gen_range(1, 200)).take(50).collect();
+    let input: Vec<i64> = dist.sample_iter(rng).take(50).collect();
 
     println!("flatmap: {}", bench(|| flatmap(&input)));
     println!("mutvec: {}", bench(|| mutvec(&input)));

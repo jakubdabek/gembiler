@@ -2,7 +2,7 @@ WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
 COMMENT = _{ "[" ~ (!"]" ~ ANY)* ~ "]"}
 
 pidentifier = @{ (ASCII_ALPHA_LOWER | "_")+ }
-num = @{ ASCII_DIGIT+ }
+num = @{ "-"? ~ ASCII_DIGIT+ }
 
 program = { SOI ~ program_text ~ EOI }
 

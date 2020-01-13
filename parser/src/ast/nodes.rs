@@ -46,7 +46,7 @@ pub enum Expression {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum RelOp { EQ, NEQ, LEQ, LE, GEQ, GE, }
+pub enum RelOp { EQ, NEQ, LEQ, LT, GEQ, GT, }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Condition {

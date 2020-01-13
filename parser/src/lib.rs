@@ -101,9 +101,9 @@ fn parse_condition(mut pairs: Pairs<Rule>) -> Condition {
         "EQ" => RelOp::EQ,
         "NEQ" => RelOp::NEQ,
         "LEQ" => RelOp::LEQ,
-        "LE" => RelOp::LE,
+        "LE" => RelOp::LT,
         "GEQ" => RelOp::GEQ,
-        "GE" => RelOp::GE,
+        "GE" => RelOp::GT,
         _ => unreachable!(),
     };
     let right = parse_value(pairs.next().unwrap().into_inner());
@@ -343,7 +343,7 @@ mod tests {
                         Command::While {
                             condition: Condition {
                                 left: Value::Identifier(var_a.clone()),
-                                op: RelOp::GE,
+                                op: RelOp::GT,
                                 right: Value::Num(0),
                             },
                             commands: vec![
@@ -366,7 +366,7 @@ mod tests {
                                 Command::IfElse {
                                     condition: Condition {
                                         left: Value::Identifier(var_a.clone()),
-                                        op: RelOp::GE,
+                                        op: RelOp::GT,
                                         right: Value::Identifier(var_b.clone()),
                                     },
                                     positive: vec![

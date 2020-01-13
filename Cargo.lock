@@ -70,6 +70,7 @@ name = "gembiler"
 version = "0.1.0"
 dependencies = [
  "parser 0.1.0",
+ "virtual-machine 0.1.0",
 ]
 
 [[package]]

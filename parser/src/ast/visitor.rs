@@ -1,5 +1,4 @@
 use crate::ast::*;
-use std::cell::RefCell;
 
 pub trait Visitable {
     fn accept<V: Visitor>(&self, visitor: &mut V) -> V::Result;

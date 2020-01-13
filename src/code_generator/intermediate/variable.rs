@@ -5,7 +5,7 @@ pub enum Variable {
 }
 
 impl Variable {
-    fn size(&self) -> usize {
+    pub fn size(&self) -> usize {
         use Variable::*;
         match self {
             Unit { .. } => 1,
@@ -13,7 +13,7 @@ impl Variable {
         }
     }
 
-    fn name(&self) -> &str {
+    pub fn name(&self) -> &str {
         use Variable::*;
         match self {
             Unit { name } => name,
@@ -40,8 +40,8 @@ impl UniqueVariable {
         self.id
     }
 
-    pub fn name(&self) -> &str {
-        self.variable.name()
+    pub fn variable(&self) -> &Variable {
+        &self.variable
     }
 }
 
@@ -68,8 +68,4 @@ impl VariableIndex {
     pub fn value(&self) -> usize {
         self.id
     }
-}
-
-pub enum VariableValue {
-    Unit { }
 }

@@ -11,3 +11,4 @@ members = ["./parser", "./virtual-machine", "./playground"]
 
 [dependencies]
 parser = { path = "./parser" }
+virtual-machine = { path = "./virtual-machine" }

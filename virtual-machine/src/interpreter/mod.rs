@@ -39,6 +39,8 @@ type Memory = BTreeMap<i64, MemoryValue>;
 type IResult = Result<(), Error>;
 
 pub mod world;
+mod run;
+pub use run::run;
 #[cfg(test)]
 mod tests;
 

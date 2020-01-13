@@ -23,10 +23,10 @@ impl CodeGenerator {
         let (first_order, second_order) = match condition.op {
             RelOp::EQ
             | RelOp::LEQ
-            | RelOp::GEQ => (Order::Second, Order::First),
+            | RelOp::GEQ => (Order::First, Order::Second),
             RelOp::NEQ
             | RelOp::LT
-            | RelOp::GT => (Order::First, Order::Second),
+            | RelOp::GT => (Order::Second, Order::First),
         };
 
         let cond_jump = match condition.op {

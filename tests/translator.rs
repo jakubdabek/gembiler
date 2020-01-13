@@ -1,4 +1,4 @@
-use gembiler::code_generator::translator::translate;
+use gembiler::code_generator::translator::Generator;
 use gembiler::code_generator::intermediate;
 use virtual_machine::interpreter;
 
@@ -31,10 +31,15 @@ fn it_works() {
     let ir = intermediate::generate(&program);
     assert!(ir.is_ok());
 
-    let translated = translate(ir.unwrap());
-    let run_result = virtual_machine::interpreter::run(translated, vec![interpreter::memval(9)]);
+    let generator = Generator::new(ir.unwrap());
+    let translated = generator.translate();
+    let (run_result, logs) = virtual_machine::interpreter::run_debug(translated, vec![interpreter::memval(10)], true);
+
     println!("{:?}", run_result);
-    let (output, _cost) = run_result.unwrap();
-    let expected: Vec<_> = [0i64, 0, 1, 1].iter().map(|&v| interpreter::memval(v)).collect();
+    println!("{}", logs.join("\n"));
+
+    let (_cost, output) = run_result.unwrap();
+    let expected: Vec<_> = [0i64, 1, 0, 1].iter().map(|&v| interpreter::memval(v)).collect();
+
     assert_eq!(output, expected);
 }

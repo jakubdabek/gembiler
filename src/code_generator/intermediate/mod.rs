@@ -7,8 +7,8 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Debug;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Constant(i64);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Constant(pub i64);
 
 impl Constant {
     pub fn repr(&self) -> String {
@@ -128,13 +128,17 @@ impl Context {
         });
 
         context.add_variable(Variable::Unit {
-            name: "tmp$arr".to_string(),
+            name: "tmp$1".to_string(),
+        });
+
+        context.add_variable(Variable::Unit {
+            name: "tmp$2".to_string(),
         });
 
         context
     }
 
-    fn add_variable(&mut self, variable: Variable) -> VariableIndex {
+    pub fn add_variable(&mut self, variable: Variable) -> VariableIndex {
         let id = VariableIndex::new(self.variables.len());
         self.variables.push(UniqueVariable::new(id, variable));
         id
@@ -156,6 +160,10 @@ impl Context {
             self.constants.insert(constant, index);
             index
         }
+    }
+
+    pub fn get_constant_index(&self, constant: &Constant) -> VariableIndex {
+        self.constants[constant]
     }
 }
 

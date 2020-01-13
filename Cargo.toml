@@ -9,6 +9,9 @@ edition = "2018"
 [workspace]
 members = ["./parser", "./virtual-machine", "./playground"]
 
+[features]
+bignum = ["virtual-machine/bignum"]
+
 [dependencies]
 parser = { path = "./parser" }
 virtual-machine = { path = "./virtual-machine" }

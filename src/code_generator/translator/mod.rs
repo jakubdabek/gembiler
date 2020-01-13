@@ -5,23 +5,88 @@ use std::collections::BTreeMap;
 use virtual_machine::interpreter::MemoryValue;
 use std::cmp::Ordering;
 use std::convert::TryInto;
+use virtual_machine::interpreter;
+use std::ops::Add;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct MemoryLocation(pub usize);
 
-type Memory = BTreeMap<VariableIndex, (MemoryLocation, Option<MemoryValue>)>;
+impl std::ops::Add<usize> for MemoryLocation {
+    type Output = MemoryLocation;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        MemoryLocation(self.0 + rhs)
+    }
+}
+
+impl std::ops::AddAssign<usize> for MemoryLocation {
+    fn add_assign(&mut self, rhs: usize) {
+        self.0 += rhs
+    }
+}
+
+type MemoryStorage = BTreeMap<VariableIndex, (MemoryLocation, Option<i64>)>;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct MemoryRange(MemoryLocation, MemoryLocation);
+
+impl MemoryRange {
+    pub fn new(start: usize, end: usize) -> Self {
+        MemoryRange(MemoryLocation(start), MemoryLocation(end))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct Segments {
+    arrays: Option<MemoryRange>,
+    variables: Option<MemoryRange>,
+    temporaries: Option<MemoryRange>,
+}
+
+#[derive(Debug)]
+struct Memory {
+    storage: MemoryStorage,
+    segments: Segments,
+}
+
+impl Memory {
+    pub fn new() -> Self {
+        Memory {
+            storage: MemoryStorage::new(),
+            segments: Segments {
+                arrays: None,
+                variables: None,
+                temporaries: None,
+            },
+        }
+    }
+
+    fn add_variable(&mut self, index: VariableIndex, value: Option<i64>) {
+        let last = if let Some(MemoryRange(_, ref mut end)) = self.segments.variables {
+            *end += 1;
+            *end
+        } else {
+            let last = self.segments.arrays.as_ref().unwrap().1 + 1usize;
+            self.segments.variables = Some(MemoryRange(last, last));
+            last
+        };
+
+        self.storage.insert(index, (last, value));
+    }
+}
+
 
 fn compare_variables(a: &UniqueVariable, b: &UniqueVariable) -> Ordering {
     match (a.variable(), b.variable()) {
-        (v1@Variable::Array{..}, v2@Variable::Array{..}) => v1.size().cmp(&v2.size()),
-        (Variable::Unit{ name: name1 }, Variable::Unit{ name: name2 }) => name1.cmp(name2),
-        (Variable::Array{..}, Variable::Unit{..}) => Ordering::Greater,
-        (Variable::Unit{..}, Variable::Array{..}) => Ordering::Less,
+        (v1@Variable::Array { .. }, v2@Variable::Array { .. }) => v1.size().cmp(&v2.size()),
+        (Variable::Unit { .. }, Variable::Unit { .. }) => Ordering::Equal,
+        (Variable::Array { .. }, Variable::Unit { .. }) => Ordering::Less,
+        (Variable::Unit { .. }, Variable::Array { .. }) => Ordering::Greater,
     }
 }
 
 fn allocate_memory(context: &Context) -> Memory {
     if context.variables().is_empty() {
-        return Default::default();
+        return Memory::new();
     }
 
     let mut variables: Vec<_> = context.variables().iter().map(|v| v).collect();
@@ -34,26 +99,29 @@ fn allocate_memory(context: &Context) -> Memory {
         }
     }).expect_err("incorrect ordering function");
 
-    let mut locations = BTreeMap::new();
+    println!("{}, {:?}", middle, variables);
+
+    let mut memory = Memory::new();
 
     let (mut iter, arrays_segment_end) = if middle > 0 {
-        let arrays_segment_end: usize = variables.iter().take(middle - 1).map(|&arr| arr.variable().size()).sum();
+        let arrays_segment_end: usize = variables.iter().take(middle).map(|&arr| arr.variable().size()).sum();
+        memory.segments.arrays = Some(MemoryRange(MemoryLocation(1), MemoryLocation(arrays_segment_end)));
 
         let mut iter = variables.iter();
-        let arrays = iter.by_ref().take(middle - 1);
+        let arrays = iter.by_ref().take(middle);
 
         let array_base_indexes = arrays.scan(1, |first, &arr| {
             let start_index = *first;
             *first += arr.variable().size();
             if let Variable::Array { start, end, .. } = arr.variable() {
-                Some((arr, start_index - *start as usize))
+                Some((arr, start_index as i64 - *start))
             } else {
                 panic!("incorrect variable order");
             }
         });
 
         for (ind, (arr, base_index)) in array_base_indexes.enumerate() {
-            locations.insert(arr.id(), (MemoryLocation(arrays_segment_end + ind + 1), Some(base_index.try_into().unwrap())));
+            memory.add_variable(arr.id(), Some(base_index));
         }
 
         (iter, arrays_segment_end)
@@ -61,14 +129,11 @@ fn allocate_memory(context: &Context) -> Memory {
         (variables.iter(), 1)
     };
 
-
-    let vars_segment_start = locations.len() + arrays_segment_end;
-
     for (ind, &var) in iter.enumerate() {
-        locations.insert(var.id(), (MemoryLocation(vars_segment_start + ind), None));
+        memory.add_variable(var.id(), None);
     }
 
-    locations
+    memory
 }
 
 //fn translate_load(&mut self, access: Access) {
@@ -102,15 +167,40 @@ fn allocate_memory(context: &Context) -> Memory {
 //    }
 //}
 
-fn generate_constants(context: &Context, locations: &mut Memory) {
+fn generate_constants(context: &Context, memory: &mut Memory) -> Vec<VmInstruction> {
     for (constant, index) in context.constants() {
-        let value = locations.get_mut(index).expect("constant not in memory");
+        let value = memory.storage.get_mut(index).expect("constant not in memory");
         value.1 = Some(constant.value());
     }
+
+    let mut to_generate: Vec<_> = memory.storage.iter().filter_map(|(_, (loc, val))| {
+        val.map(|val| (loc, val))
+    }).collect();
+
+    to_generate.sort_unstable_by(|(_, val1), (_, val2)| {
+        let cmp = val1.abs().cmp(&val2.abs());
+        if cmp == Ordering::Equal {
+            val1.cmp(val2)
+        } else {
+            cmp
+        }
+    });
+
+    println!("{:?}", to_generate);
+
+    let mut generating_instructions = vec![];
+
+
+
+    for (loc, val) in to_generate {
+
+    }
+
+    generating_instructions
 }
 
 pub fn translate(context: Context) -> Vec<VmInstruction> {
-    let mut translated = vec![];
+    let mut translated = Vec::with_capacity(context.instructions().len() * 3);
     let mut label_positions = BTreeMap::new();
 
     let mut locations = allocate_memory(&context);

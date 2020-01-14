@@ -9,7 +9,7 @@ impl Variable {
         use Variable::*;
         match self {
             Unit { .. } => 1,
-            Array { start, end, .. } => (end - start) as usize,
+            Array { start, end, .. } => (end - start + 1) as usize,
         }
     }
 

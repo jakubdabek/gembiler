@@ -40,17 +40,17 @@ fn parse_line<F: FromStr>() -> Result<F, F::Err> {
     let mut buf = String::new();
     io::stdin().lock().read_line(&mut buf).expect("error reading stdin");
 
-    buf.trim_end_matches('\n').parse()
+    buf.trim_end_matches(&['\n', '\r'][..]).parse()
 }
 
 impl <T: FromStr + Display> World<T> for ConsoleWorld<T> {
     fn get(&mut self) -> Result<T, Error> {
-        print!("> "); io::stdout().flush().unwrap();
+        print!("? "); io::stdout().flush().unwrap();
         parse_line().map_err(|_| Error::InvalidInput)
     }
 
     fn put(&mut self, val: &T) {
-        println!("{}", val);
+        println!("> {}", val);
     }
 
     fn log(&mut self, message: fmt::Arguments) {
@@ -68,7 +68,8 @@ pub struct MemoryWorld<T> {
 }
 
 impl <T> MemoryWorld<T> {
-    pub fn new(inputs: Vec<T>) -> MemoryWorld<T> {
+    pub fn new(mut inputs: Vec<T>) -> MemoryWorld<T> {
+        inputs.reverse();
         MemoryWorld {
             inputs,
             outputs: vec![],

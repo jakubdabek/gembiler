@@ -26,6 +26,7 @@ fn main() {
     debug_file("test-data/program0.imp");
 //    debug_file("test-data/program1.imp");
     debug_file("test-data/program2.imp");
+    debug_file("jftt2019-testy/1-numbers.imp");
 
 //    debug_file("test-data/p1.imp");
 

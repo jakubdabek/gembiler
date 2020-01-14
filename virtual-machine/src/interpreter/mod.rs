@@ -42,6 +42,8 @@ type IResult = Result<(), Error>;
 pub mod world;
 mod run;
 pub use run::{run, run_debug, run_interactive};
+use num_traits::Zero;
+
 #[cfg(test)]
 mod tests;
 
@@ -139,12 +141,12 @@ impl Interpreter {
         if let Some(mem) = mem {
             self.log(format_args!("     Memory read: [{}] = {}", index, mem));
         } else {
-            self.log(format_args!("!    Uninitialized access to [{}] at <{}: {:?}>", index, self.instr_ptr, self.program[self.instr_ptr]));
+            self.log(format_args!("!!!! Uninitialized access to [{}] at <{}: {:?}>", index, self.instr_ptr, self.program[self.instr_ptr]));
         }
         mem.ok_or(Error::UninitializedMemoryAccess)
     }
 
-    fn assign_indirect(&mut self, index: i64, indirect_index: i64) -> IResult {
+    fn assign_from_indirect(&mut self, index: i64, indirect_index: i64) -> IResult {
         let value_index = self.get_initialized(indirect_index)?;
 
         #[cfg(feature = "bignum")]
@@ -152,6 +154,16 @@ impl Interpreter {
 
         let value_index = *value_index;
         self.assign(index, value_index)
+    }
+
+    fn assign_to_indirect(&mut self, indirect_index: i64, index: i64) -> IResult {
+        let target_index = self.get_initialized(indirect_index)?;
+
+        #[cfg(feature = "bignum")]
+        let target_index = &target_index.to_i64().expect("indirect index out of range");
+
+        let target_index = *target_index;
+        self.assign(target_index, index)
     }
 
     fn assign(&mut self, index: i64, value_index: i64) -> IResult {
@@ -216,7 +228,7 @@ impl Interpreter {
                 },
                 Instruction::Loadi(arg) => {
                     self.cost += cost;
-                    self.assign_indirect(0, arg.try_into().unwrap())?;
+                    self.assign_from_indirect(0, arg.try_into().unwrap())?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Store(arg) => {
@@ -226,7 +238,7 @@ impl Interpreter {
                 },
                 Instruction::Storei(arg) => {
                     self.cost += cost;
-                    self.assign(0, arg.try_into().unwrap())?;
+                    self.assign_to_indirect(arg.try_into().unwrap(), 0)?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Add(arg) => {
@@ -257,7 +269,13 @@ impl Interpreter {
                         panic!("Div not supported")
                     }
                     self.cost += cost;
-                    self.mutate_bin(0, arg.try_into().unwrap(), |a, b| a.div_floor(b))?;
+                    self.mutate_bin(0, arg.try_into().unwrap(), |a, b| {
+                        if b.is_zero() {
+                            memval(0)
+                        } else {
+                            a.div_floor(b)
+                        }
+                    })?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Mod(arg) => {
@@ -265,7 +283,13 @@ impl Interpreter {
                         panic!("Mod not supported")
                     }
                     self.cost += cost;
-                    self.mutate_bin(0, arg.try_into().unwrap(), |a, b| a.mod_floor(b))?;
+                    self.mutate_bin(0, arg.try_into().unwrap(), |a, b| {
+                        if b.is_zero() {
+                            memval(0)
+                        } else {
+                            a.mod_floor(b)
+                        }
+                    })?;
                     self.instr_ptr += 1;
                 },
                 Instruction::Inc => {

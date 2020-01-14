@@ -210,10 +210,17 @@ impl CodeGenerator {
         var
     }
 
+    fn pop_local(&mut self, index: VariableIndex) {
+        let popped = self.locals.pop().expect("locals empty");
+        if popped != index {
+            panic!("locals incorrectly nested")
+        }
+    }
+
     fn find_variable_by_name(&self, name: &str) -> Option<&UniqueVariable> {
         self.locals.iter()
             .map(|ind| self.context.get_variable(ind))
-            .find(|&var| var.variable().name() == name)
+            .rfind(|&var| var.variable().name() == name)
             .or_else(|| self.context.find_variable_by_name(name))
     }
 
@@ -225,17 +232,17 @@ impl CodeGenerator {
         self.context.instructions.push(instruction)
     }
 
-    fn emit_load(&mut self) {
+    fn emit_load_visited(&mut self) {
         let access = self.access_stack.pop();
         self.emit(Instruction::Load { access });
     }
 
-    fn emit_pre_store(&mut self) {
+    fn emit_pre_store_visited(&mut self) {
         let access = self.access_stack.peek(0).clone();
         self.emit(Instruction::PreStore { access });
     }
 
-    fn emit_store(&mut self) {
+    fn emit_store_visited(&mut self) {
         let access = self.access_stack.pop();
         self.emit(Instruction::Store { access });
     }

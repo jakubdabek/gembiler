@@ -146,8 +146,13 @@ impl Generator {
         }
     }
 
+    fn get_constant_location(&self, value: i64) -> MemoryLocation {
+        let ind = self.context.get_constant_index(&Constant(1));
+        self.memory.storage.get(&ind).expect(format!("constant {} has not been generated", value).as_str()).0
+    }
+
     fn generate_constant(&mut self, value: i64, location: MemoryLocation) {
-        let abs = value.abs();
+        let abs = value.abs() as u64;
         if abs < 10 {
             let (grow_instr, shrink_instr) = if value.is_positive() {
                 (VmInstruction::Inc, VmInstruction::Dec)
@@ -163,36 +168,36 @@ impl Generator {
                 self.target_instructions.push(shrink_instr);
             }
         } else {
+            let leading_zeros = abs.leading_zeros();
             let mut abs = abs.reverse_bits();
 
-            let (shift_const, grow_instr) = if value.is_positive() {
-                let ind = self.context.get_constant_index(&Constant(1));
-                let c1 = self.memory.storage.get(&ind).expect("1 constant has not been generated").0;
-                (c1, VmInstruction::Inc)
+            let one_const = self.get_constant_location(1);
+            let two_const = self.get_constant_location(2);
+
+            let grow_instr = if value.is_positive() {
+                VmInstruction::Inc
             } else {
-                let ind = self.context.get_constant_index(&Constant(-1));
-                let c_1 = self.memory.storage.get(&ind).expect("-1 constant has not been generated").0;
-                (c_1, VmInstruction::Dec)
+                VmInstruction::Dec
             };
 
-            let shift_loc = shift_const.0;
 
             while abs & 1 == 0 {
                 abs >>= 1;
             }
 
-            while abs > 1 {
+            for i in 0..(64 - leading_zeros - 1) {
                 if abs & 1 == 1 {
                     self.target_instructions.push(grow_instr);
                 }
 
-                self.target_instructions.push(VmInstruction::Shift(shift_loc));
+                self.target_instructions.push(VmInstruction::Shift(one_const.0));
+                abs >>= 1;
             }
-
             if abs & 1 == 1 {
                 self.target_instructions.push(grow_instr);
             }
 
+            self.target_instructions.push(VmInstruction::Store(location.0));
             self.target_instructions.push(VmInstruction::Sub(0));
         }
     }
@@ -297,7 +302,7 @@ impl Generator {
                         Access::Constant(_)
                         | Access::Variable(_)
                         | Access::ArrayStatic(_, _) => (),
-                        Access::ArrayDynamic(_, _) => unimplemented!(),
+                        Access::ArrayDynamic(_, _) => (),// unimplemented!(),
                     }
                 },
                 Instruction::Store { access } => {

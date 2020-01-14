@@ -633,3 +633,121 @@ fn sort() {
 
     check_success(code, input, expected.as_slice());
 }
+
+#[test]
+#[ignore = "unknown result"]
+fn bonus0() {
+    let code = r#"
+        DECLARE
+            a, b, c, d, e, f, g, h, x
+        BEGIN
+            READ a;
+            READ b;
+            READ c;
+            READ d;
+            READ e;
+            READ f;
+            READ g;
+            READ h;
+            x ASSIGN 0;
+            FOR i FROM 1 TO a DO
+                FOR j FROM -1 DOWNTO b DO
+                    FOR k FROM 1 TO c DO
+                        FOR l FROM -1 DOWNTO d DO
+                            FOR m FROM 1 TO e DO
+                                FOR n FROM -1 DOWNTO f DO
+                                    FOR o FROM 1 TO g DO
+                                        FOR p FROM -1 DOWNTO h DO
+                                            x ASSIGN x PLUS 1;
+                                        ENDFOR
+                                    ENDFOR
+                                ENDFOR
+                            ENDFOR
+                        ENDFOR
+                    ENDFOR
+                ENDFOR
+            ENDFOR
+        END
+    "#;
+
+    let input = memval_vec(&[]);
+    let expected = memval_vec(&[]); //?
+
+    check_success(code, input, expected.as_slice());
+}
+
+#[test]
+#[ignore = "too long"]
+fn bonus2() {
+    let code = r#"
+        [ Rozklad liczby 340282367713220089251654026161790386200 na czynniki pierwsze ]
+        [ Oczekiwany wynik:
+          2^3
+          3
+          5^2
+          7
+          13
+          41
+          61
+          641
+          1321
+          6700417
+          613566757
+          715827883
+        ]
+        DECLARE
+            a(0:3),
+            n, m, reszta, potega, dzielnik
+        BEGIN
+            a(0) ASSIGN 4294967297;
+            a(1) ASSIGN 4294967298;
+            a(2) ASSIGN 4294967299;
+            a(3) ASSIGN 4294967300;
+
+            n ASSIGN a(0) TIMES a(1);
+            n ASSIGN n TIMES a(2);
+            n ASSIGN n TIMES a(3);
+
+            dzielnik ASSIGN 2;
+            m ASSIGN dzielnik TIMES dzielnik;
+            WHILE n GEQ m DO
+                potega ASSIGN 0;
+                reszta ASSIGN n MOD dzielnik;
+                WHILE reszta EQ 0 DO
+                    n ASSIGN n DIV dzielnik;
+                    potega ASSIGN potega PLUS 1;
+                    reszta ASSIGN n MOD dzielnik;
+                ENDWHILE
+                IF potega GE 0 THEN [ czy znaleziono dzielnik ]
+                    WRITE dzielnik;
+                    WRITE potega;
+                ELSE
+                    dzielnik ASSIGN dzielnik PLUS 1;
+                    m ASSIGN dzielnik TIMES dzielnik;
+                ENDIF
+            ENDWHILE
+            IF n NEQ 1 THEN [ ostatni dzielnik ]
+                WRITE n;
+                WRITE 1;
+            ENDIF
+        END
+    "#;
+
+    let input = memval_vec(&[]);
+    let expected = memval_vec(&[
+        2, 3,
+        3, 1,
+        5, 2,
+        7, 1,
+        13, 1,
+        41, 1,
+        61, 1,
+        641, 1,
+        1321, 1,
+        6700417, 1,
+        613566757, 1,
+        715827883, 1,
+    ]);
+
+    check_success(code, input, expected.as_slice());
+}

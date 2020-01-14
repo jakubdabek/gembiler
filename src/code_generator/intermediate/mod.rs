@@ -28,7 +28,7 @@ pub enum Access {
     ArrayDynamic(VariableIndex, VariableIndex),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Instruction {
     Label { label: Label },
 
@@ -167,9 +167,9 @@ impl Context {
     }
 
     pub fn new_label(&mut self) -> Label {
-        let id = self.context.labels.len();
+        let id = self.labels.len();
         let label = Label::new(id);
-        self.context.labels.push(label.clone());
+        self.labels.push(label.clone());
         label
     }
 }

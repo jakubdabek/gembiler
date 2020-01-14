@@ -52,10 +52,11 @@ fn check_success(code: &str, input: Vec<MemoryValue>, expected: &[MemoryValue]) 
 
     let generator = Generator::new(ir.unwrap());
     let translated = generator.translate();
-    let (run_result, logs) = virtual_machine::interpreter::run_debug(translated, input, true);
+//    let (run_result, logs) = virtual_machine::interpreter::run_debug(translated, input, true);
+    let run_result = virtual_machine::interpreter::run_extended(translated, input);
 
     println!("{:?}", run_result);
-    println!("{}", logs.join("\n"));
+//    println!("{}", logs.join("\n"));
 
     let (_cost, output) = run_result.unwrap();
 
@@ -365,7 +366,6 @@ fn fib() {
 }
 
 #[test]
-#[ignore = "for not implemented"]
 fn fib_factorial() {
     let code = r#"
         [ Silnia  PLUS  Fibonacci
@@ -402,7 +402,6 @@ fn fib_factorial() {
 }
 
 #[test]
-//#[ignore = "for not implemented"]
 fn factorial() {
     let code = r#"
         [ Silnia
@@ -436,7 +435,6 @@ fn factorial() {
 }
 
 #[test]
-//#[ignore = "for not implemented"]
 fn tab() {
     let code = r#"
         [ tab.imp ]
@@ -506,7 +504,6 @@ fn mod_mult() {
 }
 
 #[test]
-//#[ignore = "for not implemented"]
 fn loopiii() {
     let code = r#"
         [ loopiii.imp - nested loops
@@ -549,7 +546,6 @@ fn loopiii() {
 }
 
 #[test]
-//#[ignore = "for not implemented"]
 fn for_loop() {
     let code = r#"
         [ for.imp

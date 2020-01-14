@@ -165,6 +165,13 @@ impl Context {
     pub fn get_constant_index(&self, constant: &Constant) -> VariableIndex {
         self.constants[constant]
     }
+
+    pub fn new_label(&mut self) -> Label {
+        let id = self.context.labels.len();
+        let label = Label::new(id);
+        self.context.labels.push(label.clone());
+        label
+    }
 }
 
 #[derive(Debug)]
@@ -255,10 +262,7 @@ impl CodeGenerator {
     }
 
     fn new_label(&mut self) -> Label {
-        let id = self.context.labels.len();
-        let label = Label::new(id);
-        self.context.labels.push(label.clone());
-        label
+        self.context.new_label()
     }
 }
 

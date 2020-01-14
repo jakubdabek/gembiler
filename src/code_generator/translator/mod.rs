@@ -342,7 +342,69 @@ impl Generator {
                         ExprOp::Plus => self.target_instructions.push(VmInstruction::Add(loc.0)),
                         ExprOp::Minus => self.target_instructions.push(VmInstruction::Sub(loc.0)),
                         ExprOp::Times => {
-                            self.target_instructions.push(VmInstruction::Mul(loc.0));
+                            // if b == 0 { goto end }
+                            // if b < 0 {
+                            //   b = -b
+                            //   a = -a
+                            // }
+                            // result = 0
+                            // while b > 0 {
+                            //   if lsb(b) == 1 {
+                            //     result += a
+                            //   }
+                            //   b >>= 1
+                            //   a <<= 1
+                            // }
+                            let left = self.context.find_variable_by_name("tmp$mul_left").expect("tmp$mul_left unavailable").id();
+                            let left = self.memory.get_location(left);
+                            let right = self.context.find_variable_by_name("tmp$op").expect("tmp$op unavailable").id();
+                            let right = self.memory.get_location(right);
+                            let tmp = self.context.find_variable_by_name("tmp$1").expect("tmp$1 unavailable").id();
+                            let tmp = self.memory.get_location(tmp);
+                            let result = self.context.find_variable_by_name("tmp$result").expect("tmp$result unavailable").id();
+                            let result = self.memory.get_location(result);
+                            let const_1 = self.get_constant_location(1);
+                            let const_neg_1 = self.get_constant_location(-1);
+
+                            let label_start = self.context.new_label();
+                            let label_main = self.context.new_label();
+                            let label_step = self.context.new_label();
+                            let label_end = self.context.new_label();
+
+                            self.target_instructions.push(VmInstruction::Store(left.0));
+                            self.target_instructions.push(VmInstruction::Load(right.0));
+                            self.target_instructions.push(VmInstruction::Jzero(label_end));
+                            self.target_instructions.push(VmInstruction::Jpos(label_start));
+                            self.target_instructions.push(VmInstruction::Sub(right));
+                            self.target_instructions.push(VmInstruction::Sub(right));
+                            self.target_instructions.push(VmInstruction::Store(right));
+                            self.target_instructions.push(VmInstruction::Load(left));
+                            self.target_instructions.push(VmInstruction::Sub(left));
+                            self.target_instructions.push(VmInstruction::Sub(left));
+                            self.target_instructions.push(VmInstruction::Store(left));
+                            self.target_instructions.push(VmInstruction::Load(right));
+                            // label start
+                            self.target_instructions.push(VmInstruction::Sub(0));
+                            self.target_instructions.push(VmInstruction::Store(result));
+                            // label main
+                            self.target_instructions.push(VmInstruction::Load(right));
+                            self.target_instructions.push(VmInstruction::Store(tmp));
+                            self.target_instructions.push(VmInstruction::Shift(const_neg_1));
+                            self.target_instructions.push(VmInstruction::Shift(const_1));
+                            self.target_instructions.push(VmInstruction::Sub(tmp));
+                            self.target_instructions.push(VmInstruction::Jzero(label_step));
+                            self.target_instructions.push(VmInstruction::Load(left));
+                            self.target_instructions.push(VmInstruction::Add(result));
+                            self.target_instructions.push(VmInstruction::Store(result));
+                            self.target_instructions.push(VmInstruction::Load(right));
+                            self.target_instructions.push(VmInstruction::Shift(const_neg_1));
+                            self.target_instructions.push(VmInstruction::Jzero(label_end));
+                            self.target_instructions.push(VmInstruction::Store(right));
+                            self.target_instructions.push(VmInstruction::Load(left));
+                            self.target_instructions.push(VmInstruction::Shift(const_1));
+                            self.target_instructions.push(VmInstruction::Store(left));
+                            self.target_instructions.push(VmInstruction::Jump(label_main));
+                            // self.target_instructions.push(VmInstruction::Mul(loc.0));
                             // unimplemented!("times operator")
                         },
                         ExprOp::Div => {

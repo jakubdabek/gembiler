@@ -41,7 +41,7 @@ type IResult = Result<(), Error>;
 
 pub mod world;
 mod run;
-pub use run::{run, run_debug, run_interactive};
+pub use run::{run, run_debug, run_interactive, run_extended};
 use num_traits::Zero;
 
 #[cfg(test)]

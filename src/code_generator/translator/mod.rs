@@ -274,6 +274,82 @@ impl Generator {
         }
     }
 
+    fn translate_multiplication(&mut self, operand: MemoryLocation) {
+        // if b == 0 { goto end }
+        // if b < 0 {
+        //   b = -b
+        //   a = -a
+        // }
+        // result = 0
+        // while b > 0 {
+        //   if lsb(b) == 1 {
+        //     result += a
+        //   }
+        //   b >>= 1
+        //   a <<= 1
+        // }
+        // p0 = result
+        // end: return p0
+        let left = self.context.find_variable_by_name("tmp$mul_left").expect("tmp$mul_left unavailable").id();
+        let left = self.memory.get_location(left);
+        let right_tmp = self.context.find_variable_by_name("tmp$op").expect("tmp$op unavailable").id();
+        let right_tmp = self.memory.get_location(right_tmp);
+        let tmp = self.context.find_variable_by_name("tmp$1").expect("tmp$1 unavailable").id();
+        let tmp = self.memory.get_location(tmp);
+        let result = self.context.find_variable_by_name("tmp$result").expect("tmp$result unavailable").id();
+        let result = self.memory.get_location(result);
+        let const_1 = self.get_constant_location(1);
+        let const_neg_1 = self.get_constant_location(-1);
+
+        let label_start = self.context.new_label();
+        let label_main = self.context.new_label();
+        let label_step = self.context.new_label();
+        let label_end = self.context.new_label();
+        let label_real_end = self.context.new_label();
+
+        self.instruction_manager.target_instructions.push(VmInstruction::Store(left.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Load(operand.0));
+        self.instruction_manager.translate_jump(&label_real_end, VmInstruction::Jzero);
+        self.instruction_manager.translate_jump(&label_start, VmInstruction::Jpos);
+        self.instruction_manager.target_instructions.push(VmInstruction::Sub(operand.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Sub(operand.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Store(right_tmp.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Load(left.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Sub(left.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Sub(left.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Store(left.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Load(right_tmp.0));
+        // label start
+        self.instruction_manager.translate_label(&label_start);
+        self.instruction_manager.target_instructions.push(VmInstruction::Sub(0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Store(result.0));
+        // label main
+        self.instruction_manager.translate_label(&label_main);
+        self.instruction_manager.target_instructions.push(VmInstruction::Load(right_tmp.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Store(tmp.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Shift(const_neg_1.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Shift(const_1.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Sub(tmp.0));
+        self.instruction_manager.translate_jump(&label_step, VmInstruction::Jzero);
+        self.instruction_manager.target_instructions.push(VmInstruction::Load(left.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Add(result.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Store(result.0));
+        // label step
+        self.instruction_manager.translate_label(&label_step);
+        self.instruction_manager.target_instructions.push(VmInstruction::Load(right_tmp.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Shift(const_neg_1.0));
+        self.instruction_manager.translate_jump(&label_end, VmInstruction::Jzero);
+        self.instruction_manager.target_instructions.push(VmInstruction::Store(right_tmp.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Load(left.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Shift(const_1.0));
+        self.instruction_manager.target_instructions.push(VmInstruction::Store(left.0));
+        self.instruction_manager.translate_jump(&label_main, VmInstruction::Jump);
+        // label end
+        self.instruction_manager.translate_label(&label_end);
+        self.instruction_manager.target_instructions.push(VmInstruction::Load(result.0));
+        self.instruction_manager.translate_label(&label_real_end);
+    }
+
     pub fn translate(mut self) -> Vec<VmInstruction> {
         let simple_constants = vec![
             Constant(0),
@@ -373,79 +449,7 @@ impl Generator {
                         ExprOp::Plus => self.instruction_manager.target_instructions.push(VmInstruction::Add(operand.0)),
                         ExprOp::Minus => self.instruction_manager.target_instructions.push(VmInstruction::Sub(operand.0)),
                         ExprOp::Times => {
-                            // if b == 0 { goto end }
-                            // if b < 0 {
-                            //   b = -b
-                            //   a = -a
-                            // }
-                            // result = 0
-                            // while b > 0 {
-                            //   if lsb(b) == 1 {
-                            //     result += a
-                            //   }
-                            //   b >>= 1
-                            //   a <<= 1
-                            // }
-                            // p0 = result
-                            // end: return p0
-                            let left = self.context.find_variable_by_name("tmp$mul_left").expect("tmp$mul_left unavailable").id();
-                            let left = self.memory.get_location(left);
-                            let right_tmp = self.context.find_variable_by_name("tmp$op").expect("tmp$op unavailable").id();
-                            let right_tmp = self.memory.get_location(right_tmp);
-                            let tmp = self.context.find_variable_by_name("tmp$1").expect("tmp$1 unavailable").id();
-                            let tmp = self.memory.get_location(tmp);
-                            let result = self.context.find_variable_by_name("tmp$result").expect("tmp$result unavailable").id();
-                            let result = self.memory.get_location(result);
-                            let const_1 = self.get_constant_location(1);
-                            let const_neg_1 = self.get_constant_location(-1);
-
-                            let label_start = self.context.new_label();
-                            let label_main = self.context.new_label();
-                            let label_step = self.context.new_label();
-                            let label_end = self.context.new_label();
-                            let label_real_end = self.context.new_label();
-
-                            self.instruction_manager.target_instructions.push(VmInstruction::Store(left.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Load(operand.0));
-                            self.instruction_manager.translate_jump(&label_real_end, VmInstruction::Jzero);
-                            self.instruction_manager.translate_jump(&label_start, VmInstruction::Jpos);
-                            self.instruction_manager.target_instructions.push(VmInstruction::Sub(operand.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Sub(operand.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Store(right_tmp.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Load(left.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Sub(left.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Sub(left.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Store(left.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Load(right_tmp.0));
-                            // label start
-                            self.instruction_manager.translate_label(&label_start);
-                            self.instruction_manager.target_instructions.push(VmInstruction::Sub(0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Store(result.0));
-                            // label main
-                            self.instruction_manager.translate_label(&label_main);
-                            self.instruction_manager.target_instructions.push(VmInstruction::Load(right_tmp.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Store(tmp.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Shift(const_neg_1.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Shift(const_1.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Sub(tmp.0));
-                            self.instruction_manager.translate_jump(&label_step, VmInstruction::Jzero);
-                            self.instruction_manager.target_instructions.push(VmInstruction::Load(left.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Add(result.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Store(result.0));
-                            // label step
-                            self.instruction_manager.translate_label(&label_step);
-                            self.instruction_manager.target_instructions.push(VmInstruction::Load(right_tmp.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Shift(const_neg_1.0));
-                            self.instruction_manager.translate_jump(&label_end, VmInstruction::Jzero);
-                            self.instruction_manager.target_instructions.push(VmInstruction::Store(right_tmp.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Load(left.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Shift(const_1.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Store(left.0));
-                            self.instruction_manager.translate_jump(&label_main, VmInstruction::Jump);
-                            // label end
-                            self.instruction_manager.translate_label(&label_end);
-                            self.instruction_manager.target_instructions.push(VmInstruction::Load(result.0));
-                            self.instruction_manager.translate_label(&label_real_end);
+                            self.translate_multiplication(operand);
                         },
                         ExprOp::Div => {
                             self.instruction_manager.target_instructions.push(VmInstruction::Div(operand.0));

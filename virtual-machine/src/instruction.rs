@@ -1,3 +1,6 @@
+use std::fmt;
+use std::fmt::Display;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Instruction {
     Get,
@@ -19,6 +22,38 @@ pub enum Instruction {
     Jzero(u64),
     Jneg(u64),
     Halt,
+}
+
+pub struct InstructionListPrinter<'a>(pub &'a [Instruction]);
+
+impl Display for InstructionListPrinter<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for instruction in self.0 {
+            match instruction {
+                Instruction::Get => writeln!(f, "GET")?,
+                Instruction::Put => writeln!(f, "PUT")?,
+                Instruction::Load(arg) => writeln!(f, "LOAD {}", arg)?,
+                Instruction::Loadi(arg) => writeln!(f, "LOADI {}", arg)?,
+                Instruction::Store(arg) => writeln!(f, "STORE {}", arg)?,
+                Instruction::Storei(arg) => writeln!(f, "STOREI {}", arg)?,
+                Instruction::Add(arg) => writeln!(f, "ADD {}", arg)?,
+                Instruction::Sub(arg) => writeln!(f, "SUB {}", arg)?,
+                Instruction::Shift(arg) => writeln!(f, "SHIFT {}", arg)?,
+                Instruction::Mul(arg) => writeln!(f, "MUL {}", arg)?,
+                Instruction::Div(arg) => writeln!(f, "DIV {}", arg)?,
+                Instruction::Mod(arg) => writeln!(f, "MOD {}", arg)?,
+                Instruction::Inc => writeln!(f, "INC")?,
+                Instruction::Dec => writeln!(f, "DEC")?,
+                Instruction::Jump(arg) => writeln!(f, "JUMP {}", arg)?,
+                Instruction::Jpos(arg) => writeln!(f, "JPOS {}", arg)?,
+                Instruction::Jzero(arg) => writeln!(f, "JZERO {}", arg)?,
+                Instruction::Jneg(arg) => writeln!(f, "JNEG {}", arg)?,
+                Instruction::Halt => writeln!(f, "HALT")?,
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl Instruction {

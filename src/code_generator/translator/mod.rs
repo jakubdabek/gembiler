@@ -56,7 +56,7 @@ impl Memory {
         }
     }
 
-    fn add_variable(&mut self, index: VariableIndex, value: Option<i64>) {
+    fn add_variable(&mut self, index: VariableIndex, value: Option<i64>) -> MemoryLocation {
         let last = if let Some(MemoryRange(_, ref mut end)) = self.segments.variables {
             *end += 1;
             *end
@@ -67,6 +67,8 @@ impl Memory {
         };
 
         self.storage.insert(index, (last, value));
+
+        last
     }
 
     fn get_location(&self, index: VariableIndex) -> MemoryLocation {
@@ -90,6 +92,7 @@ struct InstructionManager {
     back_patches_list: BTreeMap<Label, Vec<usize>>,
 }
 
+#[allow(non_snake_case)]
 impl InstructionManager {
     fn fix_label(&mut self, instruction_ptr: usize, target_pointer: u64) {
         match self.target_instructions[instruction_ptr] {
@@ -121,6 +124,54 @@ impl InstructionManager {
                 self.fix_label(pos, target);
             }
         }
+    }
+
+    fn instr_Get(&mut self) {
+        self.target_instructions.push(VmInstruction::Get);
+    }
+
+    fn instr_Put(&mut self) {
+        self.target_instructions.push(VmInstruction::Put);
+    }
+
+    fn instr_Load(&mut self, operand: MemoryLocation) {
+        self.target_instructions.push(VmInstruction::Load(operand.0));
+    }
+
+    fn instr_Loadi(&mut self, operand: MemoryLocation) {
+        self.target_instructions.push(VmInstruction::Loadi(operand.0));
+    }
+
+    fn instr_Store(&mut self, operand: MemoryLocation) {
+        self.target_instructions.push(VmInstruction::Store(operand.0));
+    }
+
+    fn instr_Storei(&mut self, operand: MemoryLocation) {
+        self.target_instructions.push(VmInstruction::Storei(operand.0));
+    }
+
+    fn instr_Add(&mut self, operand: MemoryLocation) {
+        self.target_instructions.push(VmInstruction::Add(operand.0));
+    }
+
+    fn instr_Sub(&mut self, operand: MemoryLocation) {
+        self.target_instructions.push(VmInstruction::Sub(operand.0));
+    }
+
+    fn instr_Shift(&mut self, operand: MemoryLocation) {
+        self.target_instructions.push(VmInstruction::Shift(operand.0));
+    }
+
+    fn instr_Inc(&mut self) {
+        self.target_instructions.push(VmInstruction::Inc);
+    }
+
+    fn instr_Dec(&mut self) {
+        self.target_instructions.push(VmInstruction::Dec);
+    }
+
+    fn instr_Halt(&mut self) {
+        self.target_instructions.push(VmInstruction::Halt);
     }
 }
 
@@ -207,7 +258,7 @@ impl Generator {
             for _ in 0..value.abs() {
                 self.instruction_manager.target_instructions.push(grow_instr);
             }
-            self.instruction_manager.target_instructions.push(VmInstruction::Store(location.0 as u64));
+            self.instruction_manager.instr_Store(location);
             for _ in 0..value.abs() {
                 self.instruction_manager.target_instructions.push(shrink_instr);
             }
@@ -229,20 +280,20 @@ impl Generator {
                 abs >>= 1;
             }
 
-            for i in 0..(64 - leading_zeros - 1) {
+            for _ in 0..(64 - leading_zeros - 1) {
                 if abs & 1 == 1 {
                     self.instruction_manager.target_instructions.push(grow_instr);
                 }
 
-                self.instruction_manager.target_instructions.push(VmInstruction::Shift(one_const.0));
+                self.instruction_manager.instr_Shift(one_const);
                 abs >>= 1;
             }
             if abs & 1 == 1 {
                 self.instruction_manager.target_instructions.push(grow_instr);
             }
 
-            self.instruction_manager.target_instructions.push(VmInstruction::Store(location.0));
-            self.instruction_manager.target_instructions.push(VmInstruction::Sub(0));
+            self.instruction_manager.instr_Store(location);
+            self.instruction_manager.instr_Sub(MemoryLocation(0));
         }
     }
 
@@ -267,37 +318,50 @@ impl Generator {
 
         println!("generating constants: {:?}", to_generate);
 
-        self.instruction_manager.target_instructions.push(VmInstruction::Sub(0));
+        self.instruction_manager.instr_Sub(MemoryLocation(0));
 
         for (loc, val) in to_generate {
             self.generate_constant(val, loc);
         }
     }
 
+    fn register_temp(&mut self, name: &str) -> VariableIndex {
+        self.context.add_variable(Variable::Unit { name: String::from("tmp$") + name })
+    }
+
+    fn get_or_register_temp(&mut self, name: &str) -> MemoryLocation {
+        let location = self.context.find_variable_by_name((String::from("tmp$") + name).as_str())
+            .map(|v| self.memory.get_location(v.id()))
+            .unwrap_or_else(|| {
+                let new_ind = self.register_temp(name);
+                self.memory.add_variable(new_ind, None)
+            });
+
+        location
+    }
+
     fn translate_multiplication(&mut self, operand: MemoryLocation) {
-        // if b == 0 { goto end }
-        // if b < 0 {
-        //   b = -b
-        //   a = -a
-        // }
-        // result = 0
-        // while b > 0 {
-        //   if lsb(b) == 1 {
-        //     result += a
-        //   }
-        //   b >>= 1
-        //   a <<= 1
-        // }
-        // p0 = result
-        // end: return p0
-        let left = self.context.find_variable_by_name("tmp$mul_left").expect("tmp$mul_left unavailable").id();
-        let left = self.memory.get_location(left);
-        let right_tmp = self.context.find_variable_by_name("tmp$op").expect("tmp$op unavailable").id();
-        let right_tmp = self.memory.get_location(right_tmp);
-        let tmp = self.context.find_variable_by_name("tmp$1").expect("tmp$1 unavailable").id();
-        let tmp = self.memory.get_location(tmp);
-        let result = self.context.find_variable_by_name("tmp$result").expect("tmp$result unavailable").id();
-        let result = self.memory.get_location(result);
+        /*
+            if b == 0 { goto end }
+            if b < 0 {
+              b = -b
+              a = -a
+            }
+            result = 0
+            while b > 0 {
+              if lsb(b) == 1 {
+                result += a
+              }
+              b >>= 1
+              a <<= 1
+            }
+            p0 = result
+            end: return p0
+        */
+        let left = self.get_or_register_temp("mul_left");
+        let right_tmp = self.get_or_register_temp("op");
+        let tmp = self.get_or_register_temp("1");
+        let result = self.get_or_register_temp("result");
         let const_1 = self.get_constant_location(1);
         let const_neg_1 = self.get_constant_location(-1);
 
@@ -307,47 +371,299 @@ impl Generator {
         let label_end = self.context.new_label();
         let label_real_end = self.context.new_label();
 
-        self.instruction_manager.target_instructions.push(VmInstruction::Store(left.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Load(operand.0));
+        self.instruction_manager.instr_Store(left);
+        self.instruction_manager.instr_Load(operand);
         self.instruction_manager.translate_jump(&label_real_end, VmInstruction::Jzero);
         self.instruction_manager.translate_jump(&label_start, VmInstruction::Jpos);
-        self.instruction_manager.target_instructions.push(VmInstruction::Sub(operand.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Sub(operand.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Store(right_tmp.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Load(left.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Sub(left.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Sub(left.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Store(left.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Load(right_tmp.0));
+        self.instruction_manager.instr_Sub(operand);
+        self.instruction_manager.instr_Sub(operand);
+        self.instruction_manager.instr_Store(right_tmp);
+        self.instruction_manager.instr_Load(left);
+        self.instruction_manager.instr_Sub(left);
+        self.instruction_manager.instr_Sub(left);
+        self.instruction_manager.instr_Store(left);
+        self.instruction_manager.instr_Load(right_tmp);
         // label start
         self.instruction_manager.translate_label(&label_start);
-        self.instruction_manager.target_instructions.push(VmInstruction::Sub(0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Store(result.0));
+        self.instruction_manager.instr_Sub(MemoryLocation(0));
+        self.instruction_manager.instr_Store(result);
         // label main
         self.instruction_manager.translate_label(&label_main);
-        self.instruction_manager.target_instructions.push(VmInstruction::Load(right_tmp.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Store(tmp.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Shift(const_neg_1.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Shift(const_1.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Sub(tmp.0));
+        self.instruction_manager.instr_Load(right_tmp);
+        self.instruction_manager.instr_Store(tmp);
+        self.instruction_manager.instr_Shift(const_neg_1);
+        self.instruction_manager.instr_Shift(const_1);
+        self.instruction_manager.instr_Sub(tmp);
         self.instruction_manager.translate_jump(&label_step, VmInstruction::Jzero);
-        self.instruction_manager.target_instructions.push(VmInstruction::Load(left.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Add(result.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Store(result.0));
+        self.instruction_manager.instr_Load(left);
+        self.instruction_manager.instr_Add(result);
+        self.instruction_manager.instr_Store(result);
         // label step
         self.instruction_manager.translate_label(&label_step);
-        self.instruction_manager.target_instructions.push(VmInstruction::Load(right_tmp.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Shift(const_neg_1.0));
+        self.instruction_manager.instr_Load(right_tmp);
+        self.instruction_manager.instr_Shift(const_neg_1);
         self.instruction_manager.translate_jump(&label_end, VmInstruction::Jzero);
-        self.instruction_manager.target_instructions.push(VmInstruction::Store(right_tmp.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Load(left.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Shift(const_1.0));
-        self.instruction_manager.target_instructions.push(VmInstruction::Store(left.0));
+        self.instruction_manager.instr_Store(right_tmp);
+        self.instruction_manager.instr_Load(left);
+        self.instruction_manager.instr_Shift(const_1);
+        self.instruction_manager.instr_Store(left);
         self.instruction_manager.translate_jump(&label_main, VmInstruction::Jump);
         // label end
         self.instruction_manager.translate_label(&label_end);
-        self.instruction_manager.target_instructions.push(VmInstruction::Load(result.0));
+        self.instruction_manager.instr_Load(result);
         self.instruction_manager.translate_label(&label_real_end);
+    }
+
+    fn translate_log(&mut self) {
+        let num = self.get_or_register_temp("num");
+        let value = self.get_or_register_temp("value");
+        let const_neg_1 = self.get_constant_location(-1);
+
+        let label_start = self.context.new_label();
+        let label_end = self.context.new_label();
+
+        self.instruction_manager.instr_Store(num);
+        self.instruction_manager.instr_Sub(MemoryLocation(0));
+        self.instruction_manager.instr_Store(value);
+
+        self.instruction_manager.translate_label(&label_start);
+        self.instruction_manager.instr_Load(num);
+        self.instruction_manager.instr_Shift(const_neg_1);
+        self.instruction_manager.instr_Store(num);
+        self.instruction_manager.translate_jump(&label_end, VmInstruction::Jzero);
+
+        self.instruction_manager.instr_Load(value);
+        self.instruction_manager.instr_Inc();
+        self.instruction_manager.instr_Store(value);
+        self.instruction_manager.translate_jump(&label_start, VmInstruction::Jump);
+
+        self.instruction_manager.translate_label(&label_end);
+        self.instruction_manager.instr_Load(value);
+    }
+
+    fn translate_abs(&mut self, original: MemoryLocation) {
+        let label_pos = self.context.new_label();
+
+        self.instruction_manager.translate_jump(&label_pos, VmInstruction::Jpos);
+        self.translate_neg(original);
+        self.instruction_manager.translate_label(&label_pos);
+    }
+
+    fn translate_abs_tmp(&mut self) {
+        let tmp = self.get_or_register_temp("abs");
+        self.instruction_manager.instr_Store(tmp);
+        self.translate_abs(tmp);
+    }
+
+    fn translate_neg(&mut self, original: MemoryLocation) {
+        self.instruction_manager.instr_Sub(original);
+        self.instruction_manager.instr_Sub(original);
+    }
+
+    fn translate_neg_tmp(&mut self) {
+        let tmp = self.get_or_register_temp("neg");
+        self.instruction_manager.instr_Store(tmp);
+        self.translate_neg(tmp);
+    }
+
+    fn translate_div_mod(&mut self, operand: MemoryLocation, div: bool) {
+        /*
+            if(divisor == 0)
+                return (0, 0);
+
+            remain         = dividend; // The left-hand side of division, i.e. what is being divided
+            scaled_divisor = divisor;  // The right-hand side of division
+            result   = 0;
+            multiple = 1;
+
+            while(scaled_divisor < dividend)
+            {
+                scaled_divisor = scaled_divisor + scaled_divisor; // Multiply by two.
+                multiple       = multiple       + multiple;       // Multiply by two.
+                // You can also use binary shift-by-left here (i.e. multiple = multiple << 1).
+            }
+
+            do {
+                if(remain >= scaled_divisor)
+                {
+                    remain = remain - scaled_divisor;
+                    result = result + multiple;
+                }
+                scaled_divisor = scaled_divisor >> 1; // Divide by two.
+                multiple       = multiple       >> 1;
+            } while(multiple != 0);
+
+            return (result, remain)
+        */
+
+        let label_while_condition = self.context.new_label();
+        let label_while_body = self.context.new_label();
+        // let label_after_while = self.context.new_label();
+        let label_if_body = self.context.new_label();
+        let label_after_if = self.context.new_label();
+        let label_do_body = self.context.new_label();
+        let label_after_do = self.context.new_label();
+        let label_divisor_1 = self.context.new_label();
+        let label_divisor_2 = self.context.new_label();
+        let label_divisor_neg_1 = self.context.new_label();
+        let label_divisor_neg_2 = self.context.new_label();
+        let label_end = self.context.new_label();
+
+        let const_1 = self.get_constant_location(1);
+        let const_neg_1 = self.get_constant_location(-1);
+
+        let original_dividend = self.get_or_register_temp("original_dividend");
+        let original_divisor = self.get_or_register_temp("original_divisor");
+        let dividend_abs = self.get_or_register_temp("dividend_abs");
+        let scaled_divisor = self.get_or_register_temp("scaled_divisor");
+        let remain = self.get_or_register_temp("remain");
+        let result = self.get_or_register_temp("div_result");
+        let multiple = self.get_or_register_temp("div_multiple");
+
+        self.instruction_manager.instr_Store(original_dividend);
+        self.translate_abs(original_dividend);
+        self.instruction_manager.instr_Store(dividend_abs);
+        self.instruction_manager.instr_Store(remain);
+
+        self.instruction_manager.instr_Load(operand);
+        self.instruction_manager.translate_jump(&label_end, VmInstruction::Jzero);
+        // self.instruction_manager.instr_Dec();
+        // self.instruction_manager.translate_jump(&label_divisor_1, VmInstruction::Jzero);
+        // self.instruction_manager.instr_Dec();
+        // self.instruction_manager.translate_jump(&label_divisor_2, VmInstruction::Jzero);
+        // self.instruction_manager.instr_Inc();
+        // self.instruction_manager.instr_Inc();
+        // self.instruction_manager.instr_Inc();
+        // self.instruction_manager.translate_jump(&label_divisor_neg_1, VmInstruction::Jzero);
+        // self.instruction_manager.instr_Inc();
+        // self.instruction_manager.translate_jump(&label_divisor_neg_2, VmInstruction::Jzero);
+        // self.instruction_manager.instr_Dec();
+        // self.instruction_manager.instr_Dec();
+
+        self.instruction_manager.instr_Store(original_divisor);
+        self.translate_abs(original_divisor);
+        self.instruction_manager.instr_Store(scaled_divisor);
+        self.instruction_manager.instr_Sub(MemoryLocation(0));
+        self.instruction_manager.instr_Store(result);
+        self.instruction_manager.instr_Inc();
+        self.instruction_manager.instr_Store(multiple);
+
+        self.instruction_manager.instr_Load(scaled_divisor);
+        self.instruction_manager.translate_jump(&label_while_condition, VmInstruction::Jump);
+
+        self.instruction_manager.translate_label(&label_while_body);
+        self.instruction_manager.instr_Load(multiple);
+        self.instruction_manager.instr_Shift(const_1);
+        self.instruction_manager.instr_Store(multiple);
+        self.instruction_manager.instr_Load(scaled_divisor);
+        self.instruction_manager.instr_Shift(const_1);
+        self.instruction_manager.instr_Store(scaled_divisor);
+
+        self.instruction_manager.translate_label(&label_while_condition);
+        // assert(p0 == scaled_divisor)
+        self.instruction_manager.instr_Sub(dividend_abs);
+        self.instruction_manager.translate_jump(&label_while_body, VmInstruction::Jneg);
+        // self.instruction_manager.translate_jump(&label_after_while, VmInstruction::Jump);
+        // self.instruction_manager.translate_label(&label_after_while);
+
+        self.instruction_manager.translate_label(&label_do_body);
+        self.instruction_manager.instr_Load(remain);
+        self.instruction_manager.instr_Sub(scaled_divisor);
+        self.instruction_manager.translate_jump(&label_after_if, VmInstruction::Jneg);
+
+        // assert(p0 == remain - scaled_divisor)
+        self.instruction_manager.instr_Store(remain);
+        self.instruction_manager.instr_Load(result);
+        self.instruction_manager.instr_Add(multiple);
+        self.instruction_manager.instr_Store(result);
+
+        self.instruction_manager.translate_label(&label_after_if);
+        self.instruction_manager.instr_Load(multiple);
+        self.instruction_manager.instr_Shift(const_neg_1);
+        self.instruction_manager.translate_jump(&label_after_do, VmInstruction::Jzero);
+        self.instruction_manager.instr_Store(multiple);
+        self.instruction_manager.instr_Load(scaled_divisor);
+        self.instruction_manager.instr_Shift(const_neg_1);
+        self.instruction_manager.instr_Store(scaled_divisor);
+        self.instruction_manager.translate_jump(&label_do_body, VmInstruction::Jump);
+
+        self.instruction_manager.translate_label(&label_after_do);
+
+        if div {
+            let label_dividend_neg = self.context.new_label();
+            let label_only_divisor_neg = self.context.new_label();
+            let label_both_neg = self.context.new_label();
+
+            self.instruction_manager.instr_Load(original_dividend);
+            self.instruction_manager.translate_jump(&label_dividend_neg, VmInstruction::Jneg);
+            // fallthrough
+
+            // (+ / ?)
+            self.instruction_manager.instr_Load(original_divisor);
+            self.instruction_manager.translate_jump(&label_only_divisor_neg, VmInstruction::Jneg);
+            // fallthrough
+
+            // (+ / +) or (- / -)
+            self.instruction_manager.translate_label(&label_both_neg);
+            self.instruction_manager.instr_Load(result);
+            self.instruction_manager.translate_jump(&label_end, VmInstruction::Jump);
+
+            // (- / ?)
+            self.instruction_manager.translate_label(&label_dividend_neg);
+            self.instruction_manager.instr_Load(original_divisor);
+            self.instruction_manager.translate_jump(&label_both_neg, VmInstruction::Jneg);
+            // fallthrough
+
+            // (+ / -) or (- / +)
+            self.instruction_manager.translate_label(&label_only_divisor_neg);
+            self.instruction_manager.instr_Load(result);
+            self.translate_neg(result);
+            self.instruction_manager.instr_Dec();
+            self.instruction_manager.translate_jump(&label_end, VmInstruction::Jump);
+        } else {
+            let label_dividend_neg = self.context.new_label();
+            let label_only_divisor_neg = self.context.new_label();
+            let label_both_neg = self.context.new_label();
+
+            self.instruction_manager.instr_Load(original_dividend);
+            self.instruction_manager.translate_jump(&label_dividend_neg, VmInstruction::Jneg);
+            // fallthrough
+
+            // (+ % ?)
+            self.instruction_manager.instr_Load(original_divisor);
+            self.instruction_manager.translate_jump(&label_only_divisor_neg, VmInstruction::Jneg);
+            // fallthrough
+
+            // (+ % +)
+            self.instruction_manager.instr_Load(remain);
+            self.instruction_manager.translate_jump(&label_end, VmInstruction::Jump);
+
+            // (- % ?)
+            self.instruction_manager.translate_label(&label_dividend_neg);
+            self.instruction_manager.instr_Load(original_divisor);
+            self.instruction_manager.translate_jump(&label_both_neg, VmInstruction::Jneg);
+            // fallthrough
+
+            // (- % +)
+            self.instruction_manager.instr_Load(remain);
+            self.instruction_manager.instr_Sub(original_divisor);
+            self.translate_neg_tmp();
+            self.instruction_manager.translate_jump(&label_end, VmInstruction::Jump);
+
+            // (+ % -)
+            self.instruction_manager.translate_label(&label_only_divisor_neg);
+            self.instruction_manager.instr_Load(remain);
+            self.instruction_manager.instr_Add(original_divisor);
+            self.instruction_manager.translate_jump(&label_end, VmInstruction::Jump);
+
+            // (- % -)
+            self.instruction_manager.translate_label(&label_both_neg);
+            self.instruction_manager.instr_Load(remain);
+            self.translate_neg(remain);
+            self.instruction_manager.translate_jump(&label_end, VmInstruction::Jump);
+        }
+
+        self.instruction_manager.translate_label(&label_end);
     }
 
     pub fn translate(mut self) -> Vec<VmInstruction> {
@@ -363,14 +679,8 @@ impl Generator {
             self.context.register_constant(c.clone());
         }
 
-        self.context.add_variable(Variable::Unit { name: String::from("tmp$mul_left") });
-        self.context.add_variable(Variable::Unit { name: String::from("tmp$result") });
-
         self.allocate_memory();
         self.generate_constants();
-
-        println!("{:?}", self.context.variables());
-        println!("{:?}", self.memory.storage);
 
         let ir_instructions = self.context.instructions().to_vec();
 
@@ -384,23 +694,23 @@ impl Generator {
                         Access::Constant(c) => {
                             let ind = self.context.get_constant_index(c);
                             let loc = self.memory.get_location(ind);
-                            self.instruction_manager.target_instructions.push(VmInstruction::Load(loc.0));
+                            self.instruction_manager.instr_Load(loc);
                         },
                         Access::Variable(ind) => {
                             let loc = self.memory.get_location(*ind);
-                            self.instruction_manager.target_instructions.push(VmInstruction::Load(loc.0));
+                            self.instruction_manager.instr_Load(loc);
                         },
                         Access::ArrayStatic(arr, c) => {
                             let real_arr_loc = self.memory.storage[arr].1.expect("unallocated array");
-                            self.instruction_manager.target_instructions.push(VmInstruction::Load((real_arr_loc + c.value()) as u64));
+                            self.instruction_manager.instr_Load(MemoryLocation((real_arr_loc + c.value()) as u64));
                         },
                         Access::ArrayDynamic(arr, ind) => {
                             let arr_loc = self.memory.get_location(*arr);
                             let ind_loc = self.memory.get_location(*ind);
 
-                            self.instruction_manager.target_instructions.push(VmInstruction::Load(arr_loc.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Add(ind_loc.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Loadi(0));
+                            self.instruction_manager.instr_Load(arr_loc);
+                            self.instruction_manager.instr_Add(ind_loc);
+                            self.instruction_manager.instr_Loadi(MemoryLocation(0));
                         },
                     }
                 },
@@ -417,47 +727,45 @@ impl Generator {
                         Access::Constant(_) => panic!("can't store into a constant"),
                         Access::Variable(ind) => {
                             let loc = self.memory.get_location(*ind);
-                            self.instruction_manager.target_instructions.push(VmInstruction::Store(loc.0));
+                            self.instruction_manager.instr_Store(loc);
                         },
                         Access::ArrayStatic(arr, c) => {
-                            let loc = self.memory.storage[arr].1.expect("unallocated array");
-                            self.instruction_manager.target_instructions.push(VmInstruction::Store((loc + c.value()) as u64));
+                            let real_arr_loc = self.memory.storage[arr].1.expect("unallocated array");
+                            self.instruction_manager.instr_Store(MemoryLocation((real_arr_loc + c.value()) as u64));
                         },
                         Access::ArrayDynamic(arr, ind) => {
                             let tmp = self.context.find_variable_by_name("tmp$1").expect("tmp$1 unavailable");
                             let tmp_loc = self.memory.get_location(tmp.id());
-                            self.instruction_manager.target_instructions.push(VmInstruction::Store(tmp_loc.0));
+                            self.instruction_manager.instr_Store(tmp_loc);
 
                             let arr_loc = self.memory.get_location(*arr);
                             let ind_loc = self.memory.get_location(*ind);
 
-                            self.instruction_manager.target_instructions.push(VmInstruction::Load(arr_loc.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Add(ind_loc.0));
+                            self.instruction_manager.instr_Load(arr_loc);
+                            self.instruction_manager.instr_Add(ind_loc);
 
                             let tmp2 = self.context.find_variable_by_name("tmp$2").expect("tmp$2 unavailable");
                             let tmp2_loc = self.memory.get_location(tmp2.id());
-                            self.instruction_manager.target_instructions.push(VmInstruction::Store(tmp2_loc.0));
+                            self.instruction_manager.instr_Store(tmp2_loc);
 
-                            self.instruction_manager.target_instructions.push(VmInstruction::Load(tmp_loc.0));
-                            self.instruction_manager.target_instructions.push(VmInstruction::Storei(tmp2_loc.0));
+                            self.instruction_manager.instr_Load(tmp_loc);
+                            self.instruction_manager.instr_Storei(tmp2_loc);
                         },
                     }
                 },
                 Instruction::Operation { op, operand } => {
                     let operand = self.memory.get_location(*operand);
                     match op {
-                        ExprOp::Plus => self.instruction_manager.target_instructions.push(VmInstruction::Add(operand.0)),
-                        ExprOp::Minus => self.instruction_manager.target_instructions.push(VmInstruction::Sub(operand.0)),
+                        ExprOp::Plus => self.instruction_manager.instr_Add(operand),
+                        ExprOp::Minus => self.instruction_manager.instr_Sub(operand),
                         ExprOp::Times => {
                             self.translate_multiplication(operand);
                         },
                         ExprOp::Div => {
-                            self.instruction_manager.target_instructions.push(VmInstruction::Div(operand.0));
-                            // unimplemented!("div operator")
+                            self.translate_div_mod(operand, true);
                         },
                         ExprOp::Mod => {
-                            self.instruction_manager.target_instructions.push(VmInstruction::Mod(operand.0));
-                            // unimplemented!("mod operator")
+                            self.translate_div_mod(operand, false);
                         },
                     }
                 },
@@ -473,13 +781,18 @@ impl Generator {
                 Instruction::JZero { label } => {
                     self.instruction_manager.translate_jump(label, VmInstruction::Jzero);
                 },
-                Instruction::Get => self.instruction_manager.target_instructions.push(VmInstruction::Get),
-                Instruction::Put => self.instruction_manager.target_instructions.push(VmInstruction::Put),
+                Instruction::Get => self.instruction_manager.instr_Get(),
+                Instruction::Put => self.instruction_manager.instr_Put(),
             }
         }
 
-        self.instruction_manager.target_instructions.push(VmInstruction::Halt);
+        self.instruction_manager.instr_Halt();
 
+        let vars = self.context.variables().iter()
+            .map(|v| (v, self.memory.get_location(v.id())));
+        for x in vars {
+            println!("{:?}", x);
+        }
         println!("{:?}", self.instruction_manager.label_positions);
 
         self.instruction_manager.target_instructions

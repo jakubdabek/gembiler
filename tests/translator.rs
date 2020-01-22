@@ -52,8 +52,8 @@ fn check_success(code: &str, input: Vec<MemoryValue>, expected: &[MemoryValue]) 
 
     let generator = Generator::new(ir.unwrap());
     let translated = generator.translate();
-//    let (run_result, logs) = virtual_machine::interpreter::run_debug(translated, input, true);
-    let run_result = virtual_machine::interpreter::run_extended(translated, input);
+    let (run_result, logs) = virtual_machine::interpreter::run_debug(translated, input, true);
+//    let run_result = virtual_machine::interpreter::run_extended(translated, input);
 
     println!("{:?}", run_result);
 //    println!("{}", logs.join("\n"));
@@ -97,7 +97,12 @@ fn program0() {
     "#;
 
     let input = memval_vec([10].iter());
-    let expected = memval_vec([0i64, 1, 0, 1].iter());
+    let expected = memval_vec([0, 1, 0, 1].iter());
+
+    check_success(code, input, expected.as_slice());
+
+    let input = memval_vec([1345601].iter());
+    let expected = memval_vec([1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1].iter().rev());
 
     check_success(code, input, expected.as_slice());
 }

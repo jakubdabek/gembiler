@@ -18,9 +18,14 @@
       <sourceFolder url="file://$MODULE_DIR$/playground/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/playground/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/playground/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/test-data/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/test-data/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/test-data/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/test-data/benches" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/parser/target" />
       <excludeFolder url="file://$MODULE_DIR$/playground/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
+      <excludeFolder url="file://$MODULE_DIR$/test-data/target" />
       <excludeFolder url="file://$MODULE_DIR$/virtual-machine/target" />
     </content>
     <orderEntry type="inheritedJdk" />

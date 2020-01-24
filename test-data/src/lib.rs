@@ -112,10 +112,13 @@ pub fn get_all_programs() -> HashMap<String, ProgramData> {
             vec![
                 {
                     let mut base = vec![
+                        1, 1, 1,
+                        1, 1, 0,
                         1, 33, 7,
                         1, 33, 8,
                         1, 33, 9,
                         1, 33, 10,
+                        1, 33, 11,
                         1, 12, 14,
                     ];
 

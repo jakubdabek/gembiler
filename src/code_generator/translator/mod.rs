@@ -590,6 +590,7 @@ impl Generator {
         self.instruction_manager.translate_label(&label_after_do);
 
         if div {
+            let label_remain_zero = self.context.new_label();
             let label_dividend_neg = self.context.new_label();
             let label_only_divisor_neg = self.context.new_label();
             let label_both_neg = self.context.new_label();
@@ -616,14 +617,25 @@ impl Generator {
 
             // (+ / -) or (- / +)
             self.instruction_manager.translate_label(&label_only_divisor_neg);
+            self.instruction_manager.instr_Load(remain);
+            self.instruction_manager.translate_jump(&label_remain_zero, VmInstruction::Jzero);
             self.instruction_manager.instr_Load(result);
             self.translate_neg(result);
             self.instruction_manager.instr_Dec();
             self.instruction_manager.translate_jump(&label_end, VmInstruction::Jump);
+
+            self.instruction_manager.translate_label(&label_remain_zero);
+            self.instruction_manager.instr_Load(result);
+            self.translate_neg(result);
+            self.instruction_manager.translate_jump(&label_end, VmInstruction::Jump);
+
         } else {
             let label_dividend_neg = self.context.new_label();
             let label_only_divisor_neg = self.context.new_label();
             let label_both_neg = self.context.new_label();
+
+            self.instruction_manager.instr_Load(remain);
+            self.instruction_manager.translate_jump(&label_end, VmInstruction::Jzero);
 
             self.instruction_manager.instr_Load(original_dividend);
             self.instruction_manager.translate_jump(&label_dividend_neg, VmInstruction::Jneg);

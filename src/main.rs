@@ -1,5 +1,4 @@
 use gembiler::code_generator::{intermediate, translator};
-use virtual_machine::instruction;
 use std::env;
 use std::fs::File;
 use std::error::Error;

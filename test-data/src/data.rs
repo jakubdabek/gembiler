@@ -243,7 +243,7 @@ const DIV_MOD2_TEXT: &str = r#"
         a, b, c, choice
     BEGIN
         READ choice;
-        IF choice > 0 THEN
+        WHILE choice GE 0 DO
             READ a;
             READ b;
             c ASSIGN a DIV b;
@@ -265,7 +265,9 @@ const DIV_MOD2_TEXT: &str = r#"
             WRITE c;
             c ASSIGN a MOD b;
             WRITE c;
-        ENDIF
+
+            READ choice;
+        ENDWHILE
     END
 "#;
 
@@ -359,23 +361,23 @@ pub const NUMBERS_DATA: Data = Data {
         let mut tab = new_collection(-5, 5);
 
         let a = 1234566543;
-        let b = -677777177;
+        let _b = -677777177;
         let c = 15;
         t[2] = -555555555;
-        let d = 8888;
+        let _d = 8888;
         tab[-4] = 11;
         t[0] = -999;
-        let e = 1111111111;
+        let _e = 1111111111;
         tab[0] = 7777;
-        let f = -2048;
-        let g = -123;
+        let _f = -2048;
+        let _g = -123;
         t[-3] = t[0];
         tab[-5] = a;
         tab[-5] = do_div(tab[0], tab[-4]);
         t[-5] = tab[0];
 
         let h = input.pop().expect("invalid input");
-        let i = 1;
+        let _i = 1;
         let j = h + c;
 
         output.push(j);
@@ -587,6 +589,7 @@ const TAB_TEXT: &str = r#"
 pub const TAB_DATA: Data = Data {
     text: TAB_TEXT,
     exec_fn: |input| {
+        assert!(input.is_empty());
         (0..=25).map(|v| v * (25 - v)).collect()
     },
 };
@@ -690,7 +693,7 @@ pub const LOOPIII_DATA: Data = Data {
     },
 };
 
-const FOR_TEXT: &str = r#"
+const FOR_LOOP_TEXT: &str = r#"
     DECLARE
         a, b, c
     BEGIN
@@ -713,8 +716,8 @@ const FOR_TEXT: &str = r#"
     END
 "#;
 
-pub const FOR_DATA: Data = Data {
-    text: FOR_TEXT,
+pub const FOR_LOOP_DATA: Data = Data {
+    text: FOR_LOOP_TEXT,
     exec_fn: |mut input| {
         let mut a = input.pop().expect("invalid input");
         let mut b = input.pop().expect("invalid input");
@@ -856,6 +859,6 @@ mod test {
 
     #[test]
     fn for_test() {
-        assert_eq!(FOR_DATA.exec(vec![12, 23, 34]), &[507, 4379, 0]);
+        assert_eq!(FOR_LOOP_DATA.exec(vec![12, 23, 34]), &[507, 4379, 0]);
     }
 }

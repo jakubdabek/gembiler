@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::ops::{Index, IndexMut};
 
 pub(crate) struct UninitializedCollection<T> {

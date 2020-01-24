@@ -1,6 +1,13 @@
+#[macro_use]
+extern crate lazy_static;
+
 use std::collections::HashMap;
 use rand::prelude::*;
 use rand::distributions::Uniform;
+
+lazy_static! {
+    pub static ref TEST_DATA: HashMap<String, ProgramData> = get_all_programs();
+}
 
 pub struct ProgramData {
     pub text: &'static str,
@@ -27,7 +34,7 @@ pub fn get_all_programs() -> HashMap<String, ProgramData> {
 
     let mut rng = rand::rngs::StdRng::seed_from_u64(420);
 
-    let dist = Uniform::new(1, 1_000_000_000_000);
+    let dist = Uniform::new(1, 1_000_000_000);
     programs.insert(
         String::from("bitstring"),
         generate_program_data(
@@ -79,7 +86,8 @@ pub fn get_all_programs() -> HashMap<String, ProgramData> {
                     vec![123_456_543_210],
                 ];
 
-                base.extend(std::iter::repeat_with(|| vec![dist.sample(&mut rng)]).take(10));
+                base.extend(std::iter::repeat_with(|| vec![dist.sample(&mut rng)])
+                    .take(4));
 
                 base
             }
@@ -156,6 +164,14 @@ pub fn get_all_programs() -> HashMap<String, ProgramData> {
     );
 
     programs.insert(
+        String::from("tab"),
+        generate_program_data(
+            data::TAB_DATA,
+            vec![vec![]]
+        ),
+    );
+
+    programs.insert(
         String::from("mod_mult"),
         generate_program_data(
             data::MOD_MULT_DATA,
@@ -185,9 +201,9 @@ pub fn get_all_programs() -> HashMap<String, ProgramData> {
     );
 
     programs.insert(
-        String::from("for"),
+        String::from("for_loop"),
         generate_program_data(
-            data::FOR_DATA,
+            data::FOR_LOOP_DATA,
             vec![
                 vec![12, 23, 34],
             ]

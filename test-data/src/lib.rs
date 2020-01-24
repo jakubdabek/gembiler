@@ -110,6 +110,7 @@ pub fn get_all_programs() -> HashMap<String, ProgramData> {
         generate_program_data(
             data::DIV_MOD2_DATA,
             vec![
+                vec![1, 33, 7, 0],
                 {
                     let mut base = vec![
                         1, 1, 1,
@@ -146,7 +147,7 @@ pub fn get_all_programs() -> HashMap<String, ProgramData> {
         String::from("fib"),
         generate_program_data(
             data::FIB_DATA,
-            (1..=10).map(|i| vec![i]).collect()
+            (1..=20).map(|i| vec![i]).collect()
         ),
     );
 

@@ -89,8 +89,6 @@ fn check_success(code: &str, input: Vec<MemoryValue>, expected: &[MemoryValue]) 
         } else {
             print_readable_error(expected_len, &mut output.iter().map(Some).chain(std::iter::repeat(None)), &mut expected.iter().map(Some))
         };
-
-
     }
 
     assert_eq!(output, expected);
@@ -124,6 +122,7 @@ make_test!(factorial);
 make_test!(fib_factorial);
 make_test!(tab);
 make_test!(mod_mult);
+make_test!(loopiii);
 make_test!(for_loop);
 
 #[test]

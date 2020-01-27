@@ -8,7 +8,9 @@ struct AssemblerParser;
 use crate::instruction::Instruction;
 use pest::iterators::Pairs;
 
-pub fn create_program(text: &str) -> Result<Vec<Instruction>, pest::error::Error<Rule>> {
+pub type Error = pest::error::Error<Rule>;
+
+pub fn create_program(text: &str) -> Result<Vec<Instruction>, Error> {
     let mut assembler: Pairs<Rule> = AssemblerParser::parse(Rule::assembler, text)?;
 
     let instructions = assembler

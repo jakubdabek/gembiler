@@ -1,6 +1,7 @@
 use std::fmt;
 use std::fmt::Display;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Instruction {
     Get,

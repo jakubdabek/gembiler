@@ -1,3 +1,5 @@
+#![allow(dead_code)] // compiler limitation
+
 use crate::instruction::Instruction;
 use crate::interpreter::{world, Error, Interpreter, MemoryValue};
 use std::cell::RefCell;

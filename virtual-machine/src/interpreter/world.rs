@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::fmt::{self, Display};
+use std::fmt::{self, Display, Formatter};
 use std::io;
 use std::io::{BufRead as _, Write as _};
 use std::marker::PhantomData;
@@ -9,6 +9,15 @@ use std::str::FromStr;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     InvalidInput,
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        use Error::*;
+        match self {
+            InvalidInput => write!(f, "invalid input"),
+        }
+    }
 }
 
 pub trait World<T> {
@@ -43,7 +52,7 @@ fn parse_line<F: FromStr>() -> Result<F, F::Err> {
         .read_line(&mut buf)
         .expect("error reading stdin");
 
-    buf.trim_end_matches(&['\n', '\r'][..]).parse()
+    buf.trim_matches(&[' ', '\t', '\n', '\r'][..]).parse()
 }
 
 impl<T: FromStr + Display> World<T> for ConsoleWorld<T> {
@@ -71,6 +80,7 @@ pub struct MemoryWorld<T> {
     logs: Vec<String>,
 }
 
+#[allow(dead_code)] // compiler limitation
 impl<T> MemoryWorld<T> {
     pub fn new(mut inputs: Vec<T>) -> MemoryWorld<T> {
         inputs.reverse();

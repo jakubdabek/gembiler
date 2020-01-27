@@ -9,7 +9,7 @@ use num_integer::Integer as _;
 use num_traits::cast::ToPrimitive;
 use std::cell::RefCell;
 use std::convert::TryInto;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Formatter, Display};
 use std::rc::Rc;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -22,6 +22,17 @@ pub enum Error {
 impl From<world::Error> for Error {
     fn from(err: world::Error) -> Self {
         Error::WorldError(err)
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        use Error::*;
+        match self {
+            UninitializedMemoryAccess => write!(f, "unitialized memory access"),
+            InstructionPointerOutOfBound => write!(f, "non-existent instruction"),
+            WorldError(e) => write!(f, "{}", e),
+        }
     }
 }
 

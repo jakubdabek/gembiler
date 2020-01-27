@@ -80,7 +80,6 @@ pub struct MemoryWorld<T> {
     logs: Vec<String>,
 }
 
-#[allow(dead_code)] // compiler limitation
 impl<T> MemoryWorld<T> {
     pub fn new(mut inputs: Vec<T>) -> MemoryWorld<T> {
         inputs.reverse();

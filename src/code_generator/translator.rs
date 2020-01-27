@@ -192,6 +192,7 @@ pub struct Generator {
     instruction_manager: InstructionManager,
 }
 
+#[allow(dead_code)]
 impl Generator {
     pub fn new(context: Context) -> Self {
         let cap = context.instructions().len() * 4;

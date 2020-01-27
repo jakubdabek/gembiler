@@ -2,9 +2,8 @@ use std::cell::RefCell;
 use std::{fs, env, io};
 use std::rc::Rc;
 
-mod instruction;
-mod interpreter;
-mod parser;
+use virtual_machine::interpreter;
+use virtual_machine::parser;
 
 use crate::interpreter::{world, Interpreter};
 use std::path::Path;

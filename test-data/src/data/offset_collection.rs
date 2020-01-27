@@ -8,10 +8,6 @@ impl<T> UninitializedCollection<T> {
     pub fn new(collection: T) -> Self {
         UninitializedCollection { collection }
     }
-
-    pub fn into_inner(self) -> T {
-        self.collection
-    }
 }
 
 impl<T: IndexMut<I, Output = Option<O>>, I, O> Index<I> for UninitializedCollection<T> {
@@ -40,10 +36,6 @@ pub(crate) struct OffsetCollection<T: IndexMut<usize>> {
 impl<T: IndexMut<usize>> OffsetCollection<T> {
     pub fn new(collection: T, offset: i64) -> Self {
         OffsetCollection { collection, offset }
-    }
-
-    pub fn into_inner(self) -> T {
-        self.collection
     }
 }
 

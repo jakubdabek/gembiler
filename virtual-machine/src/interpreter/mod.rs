@@ -1,18 +1,16 @@
-#![allow(dead_code)]
-
 use crate::instruction::Instruction;
 use std::collections::BTreeMap;
 
+use crate::interpreter::world::World;
 #[cfg(feature = "bignum")]
-use num_bigint::{BigInt, Sign, RandBigInt};
+use num_bigint::{BigInt, RandBigInt, Sign};
+use num_integer::Integer as _;
 #[cfg(feature = "bignum")]
 use num_traits::cast::ToPrimitive;
-use std::rc::Rc;
 use std::cell::RefCell;
-use crate::interpreter::world::World;
-use std::fmt::{self, Debug, Formatter};
 use std::convert::TryInto;
-use num_integer::Integer as _;
+use std::fmt::{self, Debug, Formatter};
+use std::rc::Rc;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
@@ -39,24 +37,26 @@ pub fn memval(v: i64) -> MemoryValue {
 type Memory = BTreeMap<i64, MemoryValue>;
 type IResult = Result<(), Error>;
 
-pub mod world;
 mod run;
-pub use run::{run, run_debug, run_interactive, run_extended};
+pub mod world;
 use num_traits::Zero;
+pub use run::{run, run_debug, run_extended, run_interactive};
 
 #[cfg(test)]
 mod tests;
 
 fn shift(a: &MemoryValue, b: &MemoryValue) -> MemoryValue {
-    #[cfg(feature = "bignum")] {
+    #[cfg(feature = "bignum")]
+    {
         match b.sign() {
             Sign::Plus => a << b.to_usize().expect("SHIFT operand out of range"),
             Sign::Minus => a >> (-b).to_usize().expect("SHIFT operand out of range"),
-            Sign::NoSign => a.clone()
+            Sign::NoSign => a.clone(),
         }
     }
 
-    #[cfg(not(feature = "bignum"))] {
+    #[cfg(not(feature = "bignum"))]
+    {
         match b.signum() {
             1 => a << b,
             -1 => a >> -b,
@@ -80,35 +80,57 @@ impl Debug for Interpreter {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f, "Interpreter {{")?;
         writeln!(f, "    memory: {:?}", self.memory)?;
-        writeln!(f, "    {}: {:?}", self.instr_ptr, self.program.get(self.instr_ptr))?;
+        writeln!(
+            f,
+            "    {}: {:?}",
+            self.instr_ptr,
+            self.program.get(self.instr_ptr)
+        )?;
         writeln!(f, "}}")
     }
 }
 
 fn random_memory_value() -> MemoryValue {
-    #[cfg(feature = "bignum")] {
+    #[cfg(feature = "bignum")]
+    {
         let mut rng = rand::thread_rng();
         rng.gen_bigint(16)
     }
-    #[cfg(not(feature = "bignum"))] {
+    #[cfg(not(feature = "bignum"))]
+    {
         rand::random()
     }
 }
 
 impl Interpreter {
-    pub fn new(world: Rc<RefCell<dyn World<MemoryValue>>>, program: Vec<Instruction>) -> Interpreter {
+    pub fn new(
+        world: Rc<RefCell<dyn World<MemoryValue>>>,
+        program: Vec<Instruction>,
+    ) -> Interpreter {
         Self::new_internal(world, program, false, false)
     }
 
-    pub fn new_extended(world: Rc<RefCell<dyn World<MemoryValue>>>, program: Vec<Instruction>) -> Interpreter {
+    pub fn new_extended(
+        world: Rc<RefCell<dyn World<MemoryValue>>>,
+        program: Vec<Instruction>,
+    ) -> Interpreter {
         Self::new_internal(world, program, true, false)
     }
 
-    pub fn new_debug(world: Rc<RefCell<dyn World<MemoryValue>>>, program: Vec<Instruction>, extended: bool) -> Interpreter {
+    pub fn new_debug(
+        world: Rc<RefCell<dyn World<MemoryValue>>>,
+        program: Vec<Instruction>,
+        extended: bool,
+    ) -> Interpreter {
         Self::new_internal(world, program, extended, true)
     }
 
-    fn new_internal(world: Rc<RefCell<dyn World<MemoryValue>>>, program: Vec<Instruction>, extended: bool, debug: bool) -> Interpreter {
+    fn new_internal(
+        world: Rc<RefCell<dyn World<MemoryValue>>>,
+        program: Vec<Instruction>,
+        extended: bool,
+        debug: bool,
+    ) -> Interpreter {
         Interpreter {
             world,
             memory: {
@@ -126,7 +148,10 @@ impl Interpreter {
 
     fn log_current_instruction(&self) {
         if self.debug {
-            self.world.borrow_mut().log(format_args!("{:-3}: {:?}", self.instr_ptr, self.program[self.instr_ptr]));
+            self.world.borrow_mut().log(format_args!(
+                "{:-3}: {:?}",
+                self.instr_ptr, self.program[self.instr_ptr]
+            ));
         }
     }
 
@@ -141,7 +166,10 @@ impl Interpreter {
         if let Some(mem) = mem {
             self.log(format_args!("     Memory read: [{}] = {}", index, mem));
         } else {
-            self.log(format_args!("!!!! Uninitialized access to [{}] at <{}: {:?}>", index, self.instr_ptr, self.program[self.instr_ptr]));
+            self.log(format_args!(
+                "!!!! Uninitialized access to [{}] at <{}: {:?}>",
+                index, self.instr_ptr, self.program[self.instr_ptr]
+            ));
         }
         mem.ok_or(Error::UninitializedMemoryAccess)
     }
@@ -168,7 +196,10 @@ impl Interpreter {
 
     fn assign(&mut self, index: i64, value_index: i64) -> IResult {
         let value = self.get_initialized(value_index)?.clone();
-        self.log(format_args!("     Memory assign: [{}] <- {}", index, &value));
+        self.log(format_args!(
+            "     Memory assign: [{}] <- {}",
+            index, &value
+        ));
         self.memory.insert(index, value);
         Ok(())
     }
@@ -176,17 +207,28 @@ impl Interpreter {
     fn mutate<F: Fn(&MemoryValue) -> MemoryValue>(&mut self, index: i64, f: F) -> IResult {
         let value = self.get_initialized(index)?;
         let new_value = f(value);
-        self.log(format_args!("     Memory mutate: [{}] <- f({}) = {}", index, value, new_value));
+        self.log(format_args!(
+            "     Memory mutate: [{}] <- f({}) = {}",
+            index, value, new_value
+        ));
         self.memory.insert(index, new_value);
 
         Ok(())
     }
 
-    fn mutate_bin<F: Fn(&MemoryValue, &MemoryValue) -> MemoryValue>(&mut self, index: i64, value_index: i64, f: F) -> IResult {
+    fn mutate_bin<F: Fn(&MemoryValue, &MemoryValue) -> MemoryValue>(
+        &mut self,
+        index: i64,
+        value_index: i64,
+        f: F,
+    ) -> IResult {
         let acc_value = self.get_initialized(index)?;
         let value = self.get_initialized(value_index)?;
         let new_value = f(acc_value, value);
-        self.log(format_args!("     Memory mutate: [{}] <- f({}, {}) = {}", index, acc_value, value, new_value));
+        self.log(format_args!(
+            "     Memory mutate: [{}] <- f({}, {}) = {}",
+            index, acc_value, value, new_value
+        ));
         self.memory.insert(index, new_value);
 
         Ok(())
@@ -195,7 +237,7 @@ impl Interpreter {
     pub fn interpret(&mut self) -> Result<u64, Error> {
         loop {
             match self.interpret_single() {
-                Ok(true) => {},
+                Ok(true) => {}
                 Ok(false) => return Ok(self.cost),
                 Err(error) => return Err(error),
             }
@@ -213,49 +255,49 @@ impl Interpreter {
                     self.log(format_args!("   ? input: {}", value));
                     self.memory.insert(0, value);
                     self.instr_ptr += 1;
-                },
+                }
                 Instruction::Put => {
                     self.cost += cost;
                     let mem = &self.memory[&0];
                     self.log(format_args!("   > output: {}", mem));
                     self.world.borrow_mut().put(mem);
                     self.instr_ptr += 1;
-                },
+                }
                 Instruction::Load(arg) => {
                     self.cost += cost;
                     self.assign(0, arg.try_into().unwrap())?;
                     self.instr_ptr += 1;
-                },
+                }
                 Instruction::Loadi(arg) => {
                     self.cost += cost;
                     self.assign_from_indirect(0, arg.try_into().unwrap())?;
                     self.instr_ptr += 1;
-                },
+                }
                 Instruction::Store(arg) => {
                     self.cost += cost;
                     self.assign(arg.try_into().unwrap(), 0)?;
                     self.instr_ptr += 1;
-                },
+                }
                 Instruction::Storei(arg) => {
                     self.cost += cost;
                     self.assign_to_indirect(arg.try_into().unwrap(), 0)?;
                     self.instr_ptr += 1;
-                },
+                }
                 Instruction::Add(arg) => {
                     self.cost += cost;
                     self.mutate_bin(0, arg.try_into().unwrap(), |a, b| a + b)?;
                     self.instr_ptr += 1;
-                },
+                }
                 Instruction::Sub(arg) => {
                     self.cost += cost;
                     self.mutate_bin(0, arg.try_into().unwrap(), |a, b| a - b)?;
                     self.instr_ptr += 1;
-                },
+                }
                 Instruction::Shift(arg) => {
                     self.cost += cost;
                     self.mutate_bin(0, arg.try_into().unwrap(), shift)?;
                     self.instr_ptr += 1;
-                },
+                }
                 Instruction::Mul(arg) => {
                     if !self.extended_instruction_set {
                         panic!("Mul not supported")
@@ -263,7 +305,7 @@ impl Interpreter {
                     self.cost += cost;
                     self.mutate_bin(0, arg.try_into().unwrap(), |a, b| a * b)?;
                     self.instr_ptr += 1;
-                },
+                }
                 Instruction::Div(arg) => {
                     if !self.extended_instruction_set {
                         panic!("Div not supported")
@@ -277,7 +319,7 @@ impl Interpreter {
                         }
                     })?;
                     self.instr_ptr += 1;
-                },
+                }
                 Instruction::Mod(arg) => {
                     if !self.extended_instruction_set {
                         panic!("Mod not supported")
@@ -291,21 +333,21 @@ impl Interpreter {
                         }
                     })?;
                     self.instr_ptr += 1;
-                },
+                }
                 Instruction::Inc => {
                     self.cost += cost;
                     self.mutate(0, |a| a + 1)?;
                     self.instr_ptr += 1;
-                },
+                }
                 Instruction::Dec => {
                     self.cost += cost;
                     self.mutate(0, |a| a - 1)?;
                     self.instr_ptr += 1;
-                },
+                }
                 Instruction::Jump(arg) => {
                     self.cost += cost;
                     self.instr_ptr = arg.try_into().unwrap();
-                },
+                }
                 Instruction::Jpos(arg) => {
                     self.cost += cost;
                     let mem = &self.memory[&0];
@@ -315,7 +357,7 @@ impl Interpreter {
                     } else {
                         self.instr_ptr += 1;
                     }
-                },
+                }
                 Instruction::Jzero(arg) => {
                     self.cost += cost;
                     let mem = &self.memory[&0];
@@ -325,7 +367,7 @@ impl Interpreter {
                     } else {
                         self.instr_ptr += 1;
                     }
-                },
+                }
                 Instruction::Jneg(arg) => {
                     self.cost += cost;
                     let mem = &self.memory[&0];
@@ -335,8 +377,10 @@ impl Interpreter {
                     } else {
                         self.instr_ptr += 1;
                     }
-                },
-                Instruction::Halt => { return Ok(false); },
+                }
+                Instruction::Halt => {
+                    return Ok(false);
+                }
             }
 
             Ok(true)
@@ -356,9 +400,7 @@ pub struct InterpreterIter {
 
 impl InterpreterIter {
     fn new(interpreter: Interpreter) -> InterpreterIter {
-        InterpreterIter {
-            interpreter,
-        }
+        InterpreterIter { interpreter }
     }
 }
 
@@ -367,7 +409,7 @@ impl Iterator for InterpreterIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         let res = self.interpreter.interpret_single();
-//        println!("in next: {:?}{:?}", self.interpreter, res);
+        // println!("in next: {:?}{:?}", self.interpreter, res);
         match res {
             Ok(true) => Some(Ok(())),
             Ok(false) => None,
@@ -377,8 +419,8 @@ impl Iterator for InterpreterIter {
 }
 
 impl IntoIterator for Interpreter {
-    type Item = <InterpreterIter as Iterator>::Item;
     type IntoIter = InterpreterIter;
+    type Item = <InterpreterIter as Iterator>::Item;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()

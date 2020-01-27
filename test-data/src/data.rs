@@ -17,7 +17,7 @@ impl Data {
 }
 
 mod offset_collection;
-use crate::data::offset_collection::{UninitializedCollection, OffsetCollection};
+use crate::data::offset_collection::{OffsetCollection, UninitializedCollection};
 
 fn do_div<T: Integer>(a: T, b: T) -> T {
     if b.is_zero() {
@@ -35,7 +35,10 @@ fn do_mod<T: Integer>(a: T, b: T) -> T {
     }
 }
 
-fn new_collection(bottom: i64, top: i64) -> OffsetCollection<UninitializedCollection<Vec<Option<i64>>>> {
+fn new_collection(
+    bottom: i64,
+    top: i64,
+) -> OffsetCollection<UninitializedCollection<Vec<Option<i64>>>> {
     let init = std::iter::repeat(None).take((top - bottom + 1) as usize);
     OffsetCollection::new(UninitializedCollection::new(init.collect()), -bottom)
 }
@@ -134,7 +137,6 @@ pub const SIEVE_DATA: Data = Data {
     },
 };
 
-
 const PRIME_DECOMPOSITION_TEXT: &str = r#"
     [ prime decomposition ]
     DECLARE
@@ -195,7 +197,8 @@ pub const PRIME_DECOMPOSITION_DATA: Data = Data {
             }
         }
 
-        if n != 1 { // the last divisor
+        if n != 1 {
+            // the last divisor
             output.push(n);
             output.push(1);
         }
@@ -229,13 +232,8 @@ pub const DIV_MOD_DATA: Data = Data {
         let b = input.pop().expect("invalid input");
 
         assert!(input.is_empty());
-        vec![
-            do_div(a, a),
-            do_div(a, b),
-            do_mod(a, a),
-            do_mod(a, b),
-        ]
-    }
+        vec![do_div(a, a), do_div(a, b), do_mod(a, a), do_mod(a, b)]
+    },
 };
 
 const DIV_MOD2_TEXT: &str = r#"
@@ -282,14 +280,14 @@ pub const DIV_MOD2_DATA: Data = Data {
             let b = input.pop().expect("invalid input");
 
             output.extend_from_slice(&[
-                do_div( a,  b),
-                do_mod( a,  b),
-                do_div( a, -b),
-                do_mod( a, -b),
+                do_div(a, b),
+                do_mod(a, b),
+                do_div(a, -b),
+                do_mod(a, -b),
                 do_div(-a, -b),
                 do_mod(-a, -b),
-                do_div(-a,  b),
-                do_mod(-a,  b),
+                do_div(-a, b),
+                do_mod(-a, b),
             ]);
 
             choice = input.pop().expect("invalid input");
@@ -297,7 +295,7 @@ pub const DIV_MOD2_DATA: Data = Data {
 
         assert!(input.is_empty());
         output
-    }
+    },
 };
 
 const NUMBERS_TEXT: &str = r#"
@@ -347,27 +345,19 @@ const NUMBERS_TEXT: &str = r#"
 pub const NUMBERS_DATA: Data = Data {
     text: NUMBERS_TEXT,
     exec_fn: |mut input| {
-        let mut output = vec![
-            0,
-            1,
-            -2,
-            10,
-            -100,
-            10000,
-            -1234567890,
-        ];
+        let mut output = vec![0, 1, -2, 10, -100, 10000, -1_234_567_890];
 
         let mut t = new_collection(-6, 6);
         let mut tab = new_collection(-5, 5);
 
-        let a = 1234566543;
-        let _b = -677777177;
+        let a = 1_234_566_543;
+        let _b = -677_777_177;
         let c = 15;
-        t[2] = -555555555;
+        t[2] = -555_555_555;
         let _d = 8888;
         tab[-4] = 11;
         t[0] = -999;
-        let _e = 1111111111;
+        let _e = 1_111_111_111;
         tab[0] = 7777;
         let _f = -2048;
         let _g = -123;
@@ -391,7 +381,7 @@ pub const NUMBERS_DATA: Data = Data {
         output.push(tab[0]);
 
         output
-    }
+    },
 };
 
 const FIB_TEXT: &str = r#"
@@ -678,14 +668,14 @@ pub const LOOPIII_DATA: Data = Data {
         let mut b = input.pop().expect("invalid input");
         let mut c = input.pop().expect("invalid input");
 
-        for i in 111091..=111110 {
+        for i in 111_091..=111_110 {
             for j in (200..=209).rev() {
                 for k in 11..=20 {
-                    a = a + k;
+                    a += k;
                 }
-                b = b + j;
+                b += j;
             }
-            c = c + i;
+            c += i;
         }
 
         assert!(input.is_empty());
@@ -726,10 +716,10 @@ pub const FOR_LOOP_DATA: Data = Data {
         for i in (0..=9).rev() {
             for j in 0..=i {
                 for k in 0..=j {
-                    a = a + k;
-                    c = k * j;
-                    c = c + i;
-                    b = b + c;
+                    a += k;
+                    c *= j;
+                    c += i;
+                    b += c;
                 }
             }
         }
@@ -753,12 +743,28 @@ mod test {
         assert_eq!(BITSTRING_DATA.exec(vec![0b1111]), rev(vec![1, 1, 1, 1]));
         assert_eq!(BITSTRING_DATA.exec(vec![0b10000]), rev(vec![1, 0, 0, 0, 0]));
         assert_eq!(BITSTRING_DATA.exec(vec![0b11001]), rev(vec![1, 1, 0, 0, 1]));
-        assert_eq!(BITSTRING_DATA.exec(vec![1345601]), rev(vec![1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1]));
+        assert_eq!(
+            BITSTRING_DATA.exec(vec![1345601]),
+            rev(vec![
+                1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1
+            ])
+        );
     }
 
     #[test]
     fn sieve() {
-        assert_eq!(SIEVE_DATA.exec(vec![]), &[2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]);
+        assert_eq!(SIEVE_DATA.exec(vec![]), &[
+            2, 3, 5, 7,
+            11, 13, 17, 19,
+            23, 29,
+            31, 37,
+            41, 43, 47,
+            53, 59,
+            61, 67,
+            71, 73, 79,
+            83, 89,
+            97
+        ]);
     }
 
     #[test]
@@ -774,7 +780,10 @@ mod test {
         assert_eq!(PRIME_DECOMPOSITION_DATA.exec(vec![22]), &[2, 1, 11, 1]);
         assert_eq!(PRIME_DECOMPOSITION_DATA.exec(vec![27]), &[3, 3]);
         assert_eq!(PRIME_DECOMPOSITION_DATA.exec(vec![64]), &[2, 6]);
-        assert_eq!(PRIME_DECOMPOSITION_DATA.exec(vec![12345654321]), &[3, 2, 7, 2, 11, 2, 13, 2, 37, 2]);
+        assert_eq!(
+            PRIME_DECOMPOSITION_DATA.exec(vec![12345654321]),
+            &[3, 2, 7, 2, 11, 2, 13, 2, 37, 2]
+        );
     }
 
     #[test]
@@ -785,7 +794,9 @@ mod test {
 
     #[test]
     fn div_mod2() {
-        assert_eq!(DIV_MOD2_DATA.exec(vec![1, 33, 7, 0]), &[4, 5, -5, -2, 4, -5, -5, 2]);
+        assert_eq!(DIV_MOD2_DATA.exec(vec![1, 33, 7, 0]), &[
+            4, 5, -5, -2, 4, -5, -5, 2
+        ]);
         assert_eq!(
             DIV_MOD2_DATA.exec(vec![
                 1, 1, 1,
@@ -845,7 +856,24 @@ mod test {
     #[test]
     fn numbers() {
         for h in -20..=20 {
-            assert_eq!(NUMBERS_DATA.exec(vec![h]), vec![0, 1, -2, 10, -100, 10000, -1234567890, h + 15, 15, -999, -555555555, 7777, -999, 11, 707, 7777])
+            assert_eq!(NUMBERS_DATA.exec(vec![h]), vec![
+                0,
+                1,
+                -2,
+                10,
+                -100,
+                10000,
+                -1234567890,
+                h + 15,
+                15,
+                -999,
+                -555555555,
+                7777,
+                -999,
+                11,
+                707,
+                7777
+            ])
         }
     }
 
@@ -856,17 +884,23 @@ mod test {
 
     #[test]
     fn fib_factorial() {
-        assert_eq!(FIB_FACTORIAL_DATA.exec(vec![20]), &[2432902008176640000, 6765]);
+        assert_eq!(FIB_FACTORIAL_DATA.exec(vec![20]), &[
+            2432902008176640000,
+            6765
+        ]);
     }
 
     #[test]
     fn factorial() {
-        assert_eq!(FACTORIAL_DATA.exec(vec![20]), &[2432902008176640000]);
+        assert_eq!(FACTORIAL_DATA.exec(vec![20]), &[2_432_902_008_176_640_000]);
     }
 
     #[test]
     fn mod_mult() {
-        assert_eq!(MOD_MULT_DATA.exec(vec![1234567890, 1234567890987654321, 987654321]), &[674106858]);
+        assert_eq!(
+            MOD_MULT_DATA.exec(vec![1_234_567_890, 1_234_567_890_987_654_321, 987_654_321]),
+            &[674106858]
+        );
     }
 
     #[test]

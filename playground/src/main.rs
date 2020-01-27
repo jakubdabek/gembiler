@@ -17,7 +17,7 @@ struct ContainerContainer<'a> {
     transformed: Vec<&'a i32>,
 }
 
-impl <'a> ContainerContainer<'a> {
+impl<'a> ContainerContainer<'a> {
     fn new() -> Self {
         ContainerContainer {
             container: Container(vec![]),
@@ -32,17 +32,14 @@ impl <'a> ContainerContainer<'a> {
 }
 
 use easybench::bench;
-use rand::prelude::*;
 use rand::distributions::Uniform;
+use rand::prelude::*;
 
-
-fn flatmap(inp: &Vec<i64>) -> Vec<i64> {
-    inp.iter().flat_map(|elem| {
-        1..*elem
-    }).collect()
+fn flatmap(inp: &[i64]) -> Vec<i64> {
+    inp.iter().flat_map(|elem| 1..*elem).collect()
 }
 
-fn mutvec(inp: &Vec<i64>) -> Vec<i64> {
+fn mutvec(inp: &[i64]) -> Vec<i64> {
     let mut vec = vec![];
 
     for elem in inp {
@@ -58,7 +55,7 @@ fn main() {
     let mut container_container = ContainerContainer::new();
     container_container.add(5);
 
-    let mut v = vec![1,2,3,4,5];
+    let mut v = vec![1, 2, 3, 4, 5];
     let mut iter = v.iter_mut();
     let v1 = iter.next().unwrap();
     let v2 = iter.next().unwrap();

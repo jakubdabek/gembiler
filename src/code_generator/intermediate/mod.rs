@@ -2,10 +2,10 @@ use parser::ast;
 use parser::ast::visitor::Visitable;
 
 mod variable;
-pub use variable::*;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Debug;
+pub use variable::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Constant(pub i64);
@@ -30,25 +30,43 @@ pub enum Access {
 
 #[derive(Debug, Clone)]
 pub enum Instruction {
-    Label { label: Label },
+    Label {
+        label: Label,
+    },
 
-    Load { access: Access },
+    Load {
+        access: Access,
+    },
 
-    PreStore { access: Access },
-    Store { access: Access },
+    PreStore {
+        access: Access,
+    },
+    Store {
+        access: Access,
+    },
 
-//    LoadDirect { variable: VariableIndex }, // p0 <- var
-//    LoadIndirect { variable: VariableIndex }, // p0 <- [var]
-//
-//    StoreDirect { variable: VariableIndex }, // var <- p0
-//    StoreIndirect { variable: VariableIndex }, // [var] <- p0
+    // LoadDirect { variable: VariableIndex }, // p0 <- var
+    // LoadIndirect { variable: VariableIndex }, // p0 <- [var]
+    //
+    // StoreDirect { variable: VariableIndex }, // var <- p0
+    // StoreIndirect { variable: VariableIndex }, // [var] <- p0
+    Operation {
+        op: ast::ExprOp,
+        operand: VariableIndex,
+    }, // p0 <- p0 <op> operand
 
-    Operation { op: ast::ExprOp, operand: VariableIndex }, // p0 <- p0 <op> operand
-
-    Jump { label: Label },
-    JNegative { label: Label },
-    JPositive { label: Label },
-    JZero { label: Label },
+    Jump {
+        label: Label,
+    },
+    JNegative {
+        label: Label,
+    },
+    JPositive {
+        label: Label,
+    },
+    JZero {
+        label: Label,
+    },
 
     Get, // print p0
     Put, // read p0
@@ -61,9 +79,7 @@ pub struct Label {
 
 impl Label {
     fn new(id: usize) -> Self {
-        Label {
-            id,
-        }
+        Label { id }
     }
 }
 
@@ -93,7 +109,7 @@ impl Context {
 }
 
 impl Debug for Context {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Context {{\n  variables: [")?;
         for var in &self.variables {
             writeln!(f, "    {:?},", var)?;
@@ -145,18 +161,24 @@ impl Context {
     }
 
     pub fn find_variable_by_name(&self, name: &str) -> Option<&UniqueVariable> {
-        self.variables.iter().find(|&var| var.variable().name() == name)
+        self.variables
+            .iter()
+            .find(|&var| var.variable().name() == name)
     }
 
     pub fn get_variable(&self, index: &VariableIndex) -> &UniqueVariable {
-        self.variables.get(index.value()).expect("nonexistent variable requested")
+        self.variables
+            .get(index.value())
+            .expect("nonexistent variable requested")
     }
 
     pub fn register_constant(&mut self, constant: Constant) -> VariableIndex {
         if self.constants.contains_key(&constant) {
             self.constants[&constant]
         } else {
-            let index = self.add_variable(Variable::Unit { name: constant.repr() });
+            let index = self.add_variable(Variable::Unit {
+                name: constant.repr(),
+            });
             self.constants.insert(constant, index);
             index
         }
@@ -187,7 +209,9 @@ impl AccessStack {
     }
 
     fn peek(&self, index: usize) -> &Access {
-        self.0.get(self.0.len() - index - 1).expect("access stack empty")
+        self.0
+            .get(self.0.len() - index - 1)
+            .expect("access stack empty")
     }
 }
 
@@ -225,7 +249,8 @@ impl CodeGenerator {
     }
 
     fn find_variable_by_name(&self, name: &str) -> Option<&UniqueVariable> {
-        self.locals.iter()
+        self.locals
+            .iter()
             .map(|ind| self.context.get_variable(ind))
             .rfind(|&var| var.variable().name() == name)
             .or_else(|| self.context.find_variable_by_name(name))
@@ -281,11 +306,13 @@ mod test {
 
     #[test]
     fn it_works() {
-        let var_a = ast::Identifier::VarAccess { name: String::from("a") };
+        let var_a = ast::Identifier::VarAccess {
+            name: String::from("a"),
+        };
         let program = ast::Program {
-            declarations: Some(vec![
-                ast::Declaration::Var { name: String::from("a") },
-            ]),
+            declarations: Some(vec![ast::Declaration::Var {
+                name: String::from("a"),
+            }]),
             commands: vec![
                 ast::Command::Read {
                     target: var_a.clone(),
@@ -304,4 +331,3 @@ mod test {
         assert!(result.is_ok());
     }
 }
-

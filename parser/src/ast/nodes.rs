@@ -26,27 +26,72 @@ pub type Commands = Vec<Command>;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Command {
-    IfElse { condition: Condition, positive: Commands, negative: Commands },
-    If { condition: Condition, positive: Commands },
-    While { condition: Condition, commands: Commands },
-    Do { commands: Commands, condition: Condition },
-    For { counter: String, ascending: bool, from: Value, to: Value, commands: Commands },
-    Read { target: Identifier },
-    Write { value: Value },
-    Assign { target: Identifier, expr: Expression },
+    IfElse {
+        condition: Condition,
+        positive: Commands,
+        negative: Commands,
+    },
+    If {
+        condition: Condition,
+        positive: Commands,
+    },
+    While {
+        condition: Condition,
+        commands: Commands,
+    },
+    Do {
+        commands: Commands,
+        condition: Condition,
+    },
+    For {
+        counter: String,
+        ascending: bool,
+        from: Value,
+        to: Value,
+        commands: Commands,
+    },
+    Read {
+        target: Identifier,
+    },
+    Write {
+        value: Value,
+    },
+    Assign {
+        target: Identifier,
+        expr: Expression,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum ExprOp { Plus, Minus, Times, Div, Mod, }
+pub enum ExprOp {
+    Plus,
+    Minus,
+    Times,
+    Div,
+    Mod,
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
-    Simple { value: Value },
-    Compound { left: Value, op: ExprOp, right: Value },
+    Simple {
+        value: Value,
+    },
+    Compound {
+        left: Value,
+        op: ExprOp,
+        right: Value,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum RelOp { EQ, NEQ, LEQ, LT, GEQ, GT, }
+pub enum RelOp {
+    EQ,
+    NEQ,
+    LEQ,
+    LT,
+    GEQ,
+    GT,
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Condition {
@@ -58,7 +103,7 @@ pub struct Condition {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Num(i64),
-    Identifier(Identifier)
+    Identifier(Identifier),
 }
 
 #[derive(Debug, PartialEq, Clone)]

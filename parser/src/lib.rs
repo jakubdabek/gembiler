@@ -4,11 +4,11 @@ extern crate pest_derive;
 
 pub mod ast;
 
+use crate::ast::*;
+use pest::iterators::Pairs;
+use pest::Parser;
 use std::fs;
 use std::path::Path;
-use pest::Parser;
-use pest::iterators::Pairs;
-use crate::ast::*;
 
 #[derive(Parser)]
 #[grammar = "program.pest"]
@@ -22,9 +22,16 @@ pub fn parse_file<P: AsRef<Path>>(path: P) -> AstResult {
 }
 
 pub fn parse_ast(text: &str) -> AstResult {
-    let mut program: Pairs<Rule> = ProgramParser::parse(Rule::program, text).map_err(|e| e.to_string())?;
+    let mut program: Pairs<Rule> =
+        ProgramParser::parse(Rule::program, text).map_err(|e| e.to_string())?;
 
-    program = program.next().unwrap().into_inner().next().unwrap().into_inner();
+    program = program
+        .next()
+        .unwrap()
+        .into_inner()
+        .next()
+        .unwrap()
+        .into_inner();
 
     let optional_declarations = program.next().unwrap();
 
@@ -32,14 +39,17 @@ pub fn parse_ast(text: &str) -> AstResult {
         Rule::declarations => {
             let pairs = optional_declarations.into_inner();
             (Some(parse_declarations(pairs)), program.next().unwrap())
-        },
+        }
         Rule::commands => (None, optional_declarations),
         _ => unreachable!(),
     };
 
     let commands = parse_commands(commands.into_inner());
 
-    Ok(ast::Program { declarations, commands })
+    Ok(ast::Program {
+        declarations,
+        commands,
+    })
 }
 
 fn parse_declaration(mut pairs: Pairs<Rule>) -> Declaration {
@@ -52,7 +62,7 @@ fn parse_declaration(mut pairs: Pairs<Rule>) -> Declaration {
                 start: parts.next().unwrap().as_str().parse().unwrap(),
                 end: parts.next().unwrap().as_str().parse().unwrap(),
             }
-        },
+        }
         Rule::var_decl => Declaration::Var {
             name: declaration.into_inner().next().unwrap().as_str().to_owned(),
         },
@@ -61,7 +71,9 @@ fn parse_declaration(mut pairs: Pairs<Rule>) -> Declaration {
 }
 
 fn parse_declarations(pairs: Pairs<Rule>) -> Declarations {
-    pairs.map(|pair| parse_declaration(pair.into_inner())).collect()
+    pairs
+        .map(|pair| parse_declaration(pair.into_inner()))
+        .collect()
 }
 
 fn parse_identifier(mut pairs: Pairs<Rule>) -> Identifier {
@@ -80,9 +92,7 @@ fn parse_identifier(mut pairs: Pairs<Rule>) -> Identifier {
             _ => unreachable!(),
         }
     } else {
-        Identifier::VarAccess {
-            name,
-        }
+        Identifier::VarAccess { name }
     }
 }
 
@@ -108,11 +118,7 @@ fn parse_condition(mut pairs: Pairs<Rule>) -> Condition {
     };
     let right = parse_value(pairs.next().unwrap().into_inner());
 
-    Condition {
-        left,
-        op,
-        right,
-    }
+    Condition { left, op, right }
 }
 
 fn parse_expression(mut pairs: Pairs<Rule>) -> Expression {
@@ -129,15 +135,9 @@ fn parse_expression(mut pairs: Pairs<Rule>) -> Expression {
         };
         let right = parse_value(pairs.next().unwrap().into_inner());
 
-        Expression::Compound {
-            left,
-            op,
-            right,
-        }
+        Expression::Compound { left, op, right }
     } else {
-        Expression::Simple {
-            value: left,
-        }
+        Expression::Simple { value: left }
     }
 }
 
@@ -210,27 +210,20 @@ fn parse_for(mut pairs: Pairs<Rule>) -> Command {
 fn parse_read(mut pairs: Pairs<Rule>) -> Command {
     let target = parse_identifier(pairs.next().unwrap().into_inner());
 
-    Command::Read {
-        target,
-    }
+    Command::Read { target }
 }
 
 fn parse_write(mut pairs: Pairs<Rule>) -> Command {
     let value = parse_value(pairs.next().unwrap().into_inner());
 
-    Command::Write {
-        value,
-    }
+    Command::Write { value }
 }
 
 fn parse_assign(mut pairs: Pairs<Rule>) -> Command {
     let target = parse_identifier(pairs.next().unwrap().into_inner());
     let expr = parse_expression(pairs.next().unwrap().into_inner());
 
-    Command::Assign {
-        target,
-        expr,
-    }
+    Command::Assign { target, expr }
 }
 
 fn parse_command(mut pairs: Pairs<Rule>) -> Command {
@@ -252,7 +245,6 @@ fn parse_commands(pairs: Pairs<Rule>) -> Commands {
     pairs.map(|pair| parse_command(pair.into_inner())).collect()
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -263,9 +255,9 @@ mod tests {
         let parsed = parse_ast(text);
         let expected = ast::Program {
             declarations: None,
-            commands: vec![
-                Command::Write { value: Value::Num(0), },
-            ],
+            commands: vec![Command::Write {
+                value: Value::Num(0),
+            }],
         };
 
         assert_eq!(parsed.unwrap(), expected);
@@ -282,17 +274,21 @@ mod tests {
         let parsed = parse_ast(text);
         let expected = ast::Program {
             declarations: Some(vec![
-                Declaration::Var { name: String::from("a") },
-                Declaration::Var { name: String::from("b") },
+                Declaration::Var {
+                    name: String::from("a"),
+                },
+                Declaration::Var {
+                    name: String::from("b"),
+                },
                 Declaration::Array {
                     name: String::from("c"),
                     start: 1,
                     end: 10,
                 },
             ]),
-            commands: vec![
-                Command::Write { value: Value::Num(0), },
-            ],
+            commands: vec![Command::Write {
+                value: Value::Num(0),
+            }],
         };
 
         assert_eq!(parsed.unwrap(), expected);
@@ -323,75 +319,79 @@ mod tests {
 
         let parsed = parse_ast(text);
 
-        let var_a = Identifier::VarAccess { name: String::from("a") };
-        let var_b = Identifier::VarAccess { name: String::from("b") };
+        let var_a = Identifier::VarAccess {
+            name: String::from("a"),
+        };
+        let var_b = Identifier::VarAccess {
+            name: String::from("b"),
+        };
 
         let expected = ast::Program {
             declarations: Some(vec![
-                Declaration::Var { name: String::from("a") },
-                Declaration::Var { name: String::from("b") },
+                Declaration::Var {
+                    name: String::from("a"),
+                },
+                Declaration::Var {
+                    name: String::from("b"),
+                },
             ]),
             commands: vec![
-                Command::Read { target: var_a.clone() },
+                Command::Read {
+                    target: var_a.clone(),
+                },
                 Command::If {
                     condition: Condition {
                         left: Value::Identifier(var_a.clone()),
                         op: RelOp::GEQ,
                         right: Value::Num(0),
                     },
-                    positive: vec![
-                        Command::While {
-                            condition: Condition {
-                                left: Value::Identifier(var_a.clone()),
-                                op: RelOp::GT,
-                                right: Value::Num(0),
+                    positive: vec![Command::While {
+                        condition: Condition {
+                            left: Value::Identifier(var_a.clone()),
+                            op: RelOp::GT,
+                            right: Value::Num(0),
+                        },
+                        commands: vec![
+                            Command::Assign {
+                                target: var_b.clone(),
+                                expr: Expression::Compound {
+                                    left: Value::Identifier(var_a.clone()),
+                                    op: ExprOp::Div,
+                                    right: Value::Num(2),
+                                },
                             },
-                            commands: vec![
-                                Command::Assign {
-                                    target: var_b.clone(),
-                                    expr: Expression::Compound {
-                                        left: Value::Identifier(var_a.clone()),
-                                        op: ExprOp::Div,
-                                        right: Value::Num(2),
-                                    }
+                            Command::Assign {
+                                target: var_b.clone(),
+                                expr: Expression::Compound {
+                                    left: Value::Num(2),
+                                    op: ExprOp::Times,
+                                    right: Value::Identifier(var_b.clone()),
                                 },
-                                Command::Assign {
-                                    target: var_b.clone(),
-                                    expr: Expression::Compound {
-                                        left: Value::Num(2),
-                                        op: ExprOp::Times,
-                                        right: Value::Identifier(var_b.clone()),
-                                    }
+                            },
+                            Command::IfElse {
+                                condition: Condition {
+                                    left: Value::Identifier(var_a.clone()),
+                                    op: RelOp::GT,
+                                    right: Value::Identifier(var_b.clone()),
                                 },
-                                Command::IfElse {
-                                    condition: Condition {
-                                        left: Value::Identifier(var_a.clone()),
-                                        op: RelOp::GT,
-                                        right: Value::Identifier(var_b.clone()),
-                                    },
-                                    positive: vec![
-                                        Command::Write {
-                                            value: Value::Num(1),
-                                        }
-                                    ],
-                                    negative: vec![
-                                        Command::Write {
-                                            value: Value::Num(0),
-                                        }
-                                    ],
+                                positive: vec![Command::Write {
+                                    value: Value::Num(1),
+                                }],
+                                negative: vec![Command::Write {
+                                    value: Value::Num(0),
+                                }],
+                            },
+                            Command::Assign {
+                                target: var_a.clone(),
+                                expr: Expression::Compound {
+                                    left: Value::Identifier(var_a.clone()),
+                                    op: ExprOp::Div,
+                                    right: Value::Num(2),
                                 },
-                                Command::Assign {
-                                    target: var_a.clone(),
-                                    expr: Expression::Compound {
-                                        left: Value::Identifier(var_a.clone()),
-                                        op: ExprOp::Div,
-                                        right: Value::Num(2),
-                                    }
-                                },
-                            ],
-                        }
-                    ],
-                }
+                            },
+                        ],
+                    }],
+                },
             ],
         };
 
@@ -424,15 +424,25 @@ mod tests {
 
         let parsed = parse_ast(text);
 
-        let var_n = Identifier::VarAccess { name: String::from("n") };
-        let var_j = Identifier::VarAccess { name: String::from("j") };
-        let temp_i = Identifier::VarAccess { name: String::from("i") };
+        let var_n = Identifier::VarAccess {
+            name: String::from("n"),
+        };
+        let var_j = Identifier::VarAccess {
+            name: String::from("j"),
+        };
+        let temp_i = Identifier::VarAccess {
+            name: String::from("i"),
+        };
         let var_sieve = String::from("sieve");
 
         let expected = ast::Program {
             declarations: Some(vec![
-                Declaration::Var { name: String::from("n") },
-                Declaration::Var { name: String::from("j") },
+                Declaration::Var {
+                    name: String::from("n"),
+                },
+                Declaration::Var {
+                    name: String::from("j"),
+                },
                 Declaration::Array {
                     name: String::from("sieve"),
                     start: 2,
@@ -451,74 +461,70 @@ mod tests {
                     ascending: false,
                     from: Value::Identifier(var_n.clone()),
                     to: Value::Num(2),
-                    commands: vec![
-                        Command::Assign {
-                            target: Identifier::ArrAccess {
-                                name: var_sieve.clone(),
-                                index: String::from("i"),
-                            },
-                            expr: Expression::Simple {
-                                value: Value::Num(1),
-                            },
+                    commands: vec![Command::Assign {
+                        target: Identifier::ArrAccess {
+                            name: var_sieve.clone(),
+                            index: String::from("i"),
                         },
-                    ],
+                        expr: Expression::Simple {
+                            value: Value::Num(1),
+                        },
+                    }],
                 },
                 Command::For {
                     counter: "i".to_string(),
                     ascending: true,
                     from: Value::Num(2),
                     to: Value::Identifier(var_n.clone()),
-                    commands: vec![
-                        Command::If {
-                            condition: Condition {
-                                left: Value::Identifier(Identifier::ArrAccess {
-                                    name: var_sieve.clone(),
-                                    index: String::from("i")
-                                }),
-                                op: RelOp::NEQ,
-                                right: Value::Num(0),
+                    commands: vec![Command::If {
+                        condition: Condition {
+                            left: Value::Identifier(Identifier::ArrAccess {
+                                name: var_sieve.clone(),
+                                index: String::from("i"),
+                            }),
+                            op: RelOp::NEQ,
+                            right: Value::Num(0),
+                        },
+                        positive: vec![
+                            Command::Assign {
+                                target: var_j.clone(),
+                                expr: Expression::Compound {
+                                    left: Value::Identifier(temp_i.clone()),
+                                    op: ExprOp::Plus,
+                                    right: Value::Identifier(temp_i.clone()),
+                                },
                             },
-                            positive: vec![
-                                Command::Assign {
-                                    target: var_j.clone(),
-                                    expr: Expression::Compound {
-                                        left: Value::Identifier(temp_i.clone()),
-                                        op: ExprOp::Plus,
-                                        right: Value::Identifier(temp_i.clone()),
-                                    }
+                            Command::While {
+                                condition: Condition {
+                                    left: Value::Identifier(var_j.clone()),
+                                    op: RelOp::LEQ,
+                                    right: Value::Identifier(var_n.clone()),
                                 },
-                                Command::While {
-                                    condition: Condition {
-                                        left: Value::Identifier(var_j.clone()),
-                                        op: RelOp::LEQ,
-                                        right: Value::Identifier(var_n.clone()),
+                                commands: vec![
+                                    Command::Assign {
+                                        target: Identifier::ArrAccess {
+                                            name: var_sieve.clone(),
+                                            index: String::from("j"),
+                                        },
+                                        expr: Expression::Simple {
+                                            value: Value::Num(0),
+                                        },
                                     },
-                                    commands: vec![
-                                        Command::Assign {
-                                            target: Identifier::ArrAccess {
-                                                name: var_sieve.clone(),
-                                                index: String::from("j"),
-                                            },
-                                            expr: Expression::Simple {
-                                                value: Value::Num(0),
-                                            },
+                                    Command::Assign {
+                                        target: var_j.clone(),
+                                        expr: Expression::Compound {
+                                            left: Value::Identifier(var_j.clone()),
+                                            op: ExprOp::Plus,
+                                            right: Value::Identifier(temp_i.clone()),
                                         },
-                                        Command::Assign {
-                                            target: var_j.clone(),
-                                            expr: Expression::Compound {
-                                                left: Value::Identifier(var_j.clone()),
-                                                op: ExprOp::Plus,
-                                                right: Value::Identifier(temp_i.clone()),
-                                            }
-                                        },
-                                    ],
-                                },
-                                Command::Write {
-                                    value: Value::Identifier(temp_i.clone())
-                                }
-                            ],
-                        }
-                    ],
+                                    },
+                                ],
+                            },
+                            Command::Write {
+                                value: Value::Identifier(temp_i.clone()),
+                            },
+                        ],
+                    }],
                 },
             ],
         };

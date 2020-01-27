@@ -1,12 +1,9 @@
-#![allow(dead_code)]
-
-use parser::ast::visitor::Visitor;
-use parser::ast;
 use super::CodeGenerator;
 use crate::code_generator::intermediate::variable::Variable;
-use crate::code_generator::intermediate::{Instruction, Access, Constant, Label};
-use parser::ast::{ExprOp, RelOp, Condition, Value};
-use parser::ast::Value::Identifier;
+use crate::code_generator::intermediate::{Access, Constant, Instruction};
+use parser::ast;
+use parser::ast::visitor::Visitor;
+use parser::ast::{ExprOp, RelOp};
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 enum Order {
@@ -15,34 +12,39 @@ enum Order {
 }
 
 impl CodeGenerator {
-    fn emit_if_else<F: FnMut(&mut Self, Order)>(&mut self, condition: &ast::Condition, mut emit_body: F) {
+    fn emit_if_else<F: FnMut(&mut Self, Order)>(
+        &mut self,
+        condition: &ast::Condition,
+        mut emit_body: F,
+    ) {
         let negative_label = self.new_label();
         let endif_label = self.new_label();
 
         self.visit(condition);
 
         let (first_order, second_order) = match condition.op {
-            RelOp::NEQ
-            | RelOp::LEQ
-            | RelOp::GEQ => (Order::First, Order::Second),
-            RelOp::EQ
-            | RelOp::LT
-            | RelOp::GT => (Order::Second, Order::First),
+            RelOp::NEQ | RelOp::LEQ | RelOp::GEQ => (Order::First, Order::Second),
+            RelOp::EQ | RelOp::LT | RelOp::GT => (Order::Second, Order::First),
         };
 
         let cond_jump = match condition.op {
-            RelOp::EQ
-            | RelOp::NEQ => Instruction::JZero { label: negative_label },
-            RelOp::GT
-            | RelOp::LEQ => Instruction::JPositive { label: negative_label },
-            RelOp::LT
-            | RelOp::GEQ => Instruction::JNegative { label: negative_label },
+            RelOp::EQ | RelOp::NEQ => Instruction::JZero {
+                label: negative_label,
+            },
+            RelOp::GT | RelOp::LEQ => Instruction::JPositive {
+                label: negative_label,
+            },
+            RelOp::LT | RelOp::GEQ => Instruction::JNegative {
+                label: negative_label,
+            },
         };
 
         self.emit(cond_jump);
         emit_body(self, first_order);
         self.emit(Instruction::Jump { label: endif_label });
-        self.emit(Instruction::Label { label: negative_label });
+        self.emit(Instruction::Label {
+            label: negative_label,
+        });
         emit_body(self, second_order);
         self.emit(Instruction::Label { label: endif_label });
     }
@@ -56,7 +58,7 @@ impl CodeGenerator {
         self.emit(Instruction::Label { label: start_label });
         emit_body(self);
         let emit_jump = |gen: &mut Self, order| {
-            if order == Order::First  {
+            if order == Order::First {
                 gen.emit(Instruction::Jump { label: start_label });
             }
         };
@@ -82,27 +84,34 @@ impl Visitor for CodeGenerator {
     fn visit_declaration(&mut self, declaration: &ast::Declaration) -> Self::Result {
         let var = match declaration {
             ast::Declaration::Var { name } => Variable::Unit { name: name.clone() },
-            ast::Declaration::Array {
-                name,
-                start,
-                end
-            } => Variable::Array { name: name.clone(), start: *start, end: *end },
+            ast::Declaration::Array { name, start, end } => Variable::Array {
+                name: name.clone(),
+                start: *start,
+                end: *end,
+            },
         };
 
         self.add_global(var);
     }
 
-    fn visit_if_else_command(&mut self, condition: &ast::Condition, positive: &ast::Commands, negative: &ast::Commands) -> Self::Result {
-        let emit = |gen: &mut Self, order| {
-            match order {
-                Order::First => gen.visit_commands(positive),
-                Order::Second => gen.visit_commands(negative),
-            }
+    fn visit_if_else_command(
+        &mut self,
+        condition: &ast::Condition,
+        positive: &ast::Commands,
+        negative: &ast::Commands,
+    ) -> Self::Result {
+        let emit = |gen: &mut Self, order| match order {
+            Order::First => gen.visit_commands(positive),
+            Order::Second => gen.visit_commands(negative),
         };
         self.emit_if_else(condition, emit);
     }
 
-    fn visit_if_command(&mut self, condition: &ast::Condition, positive: &ast::Commands) -> Self::Result {
+    fn visit_if_command(
+        &mut self,
+        condition: &ast::Condition,
+        positive: &ast::Commands,
+    ) -> Self::Result {
         let emit = |gen: &mut Self, order| {
             if order == Order::First {
                 gen.visit_commands(positive);
@@ -111,48 +120,99 @@ impl Visitor for CodeGenerator {
         self.emit_if_else(condition, emit);
     }
 
-    fn visit_while_command(&mut self, condition: &ast::Condition, commands: &ast::Commands) -> Self::Result {
+    fn visit_while_command(
+        &mut self,
+        condition: &ast::Condition,
+        commands: &ast::Commands,
+    ) -> Self::Result {
         self.emit_while(condition, |gen: &mut Self| gen.visit_commands(commands));
     }
 
-    fn visit_do_command(&mut self, commands: &ast::Commands, condition: &ast::Condition) -> Self::Result {
+    fn visit_do_command(
+        &mut self,
+        commands: &ast::Commands,
+        condition: &ast::Condition,
+    ) -> Self::Result {
         self.emit_do(condition, |gen: &mut Self| gen.visit_commands(commands));
     }
 
-    fn visit_for_command(&mut self, counter: &str, ascending: bool, from: &ast::Value, to: &ast::Value, commands: &ast::Commands) -> Self::Result {
-        let counter_var = self.add_local(Variable::Unit { name: counter.to_owned() });
-        let tmp = self.add_local(Variable::Unit { name: counter.to_owned() + "$to" });
+    fn visit_for_command(
+        &mut self,
+        counter: &str,
+        ascending: bool,
+        from: &ast::Value,
+        to: &ast::Value,
+        commands: &ast::Commands,
+    ) -> Self::Result {
+        let counter_var = self.add_local(Variable::Unit {
+            name: counter.to_owned(),
+        });
+        let tmp = self.add_local(Variable::Unit {
+            name: counter.to_owned() + "$to",
+        });
 
-        self.emit(Instruction::PreStore { access: Access::Variable(counter_var) });
+        self.emit(Instruction::PreStore {
+            access: Access::Variable(counter_var),
+        });
         self.visit(from);
         self.emit_load_visited();
-        self.emit(Instruction::Store { access: Access::Variable(counter_var) });
+        self.emit(Instruction::Store {
+            access: Access::Variable(counter_var),
+        });
 
-        self.emit(Instruction::PreStore { access: Access::Variable(tmp) });
+        self.emit(Instruction::PreStore {
+            access: Access::Variable(tmp),
+        });
         self.visit(to);
         self.emit_load_visited();
-        self.emit(Instruction::Store { access: Access::Variable(tmp) });
+        self.emit(Instruction::Store {
+            access: Access::Variable(tmp),
+        });
 
-        let counter_name = self.context.get_variable(&counter_var).variable().name().to_owned();
+        let counter_name = self
+            .context
+            .get_variable(&counter_var)
+            .variable()
+            .name()
+            .to_owned();
         debug_assert_eq!(counter_name.as_str(), counter);
         let tmp_name = self.context.get_variable(&tmp).variable().name().to_owned();
         debug_assert_eq!(tmp_name.as_str(), (counter_name.clone() + "$to").as_str());
 
-        self.emit_while(&ast::Condition {
-            left: ast::Value::Identifier(ast::Identifier::VarAccess { name: counter_name.clone() }),
-            op: if ascending { ast::RelOp::LEQ } else { ast::RelOp::GEQ },
-            right: ast::Value::Identifier(ast::Identifier::VarAccess { name: tmp_name.clone() }),
-        }, |gen| {
-            gen.visit_commands(commands);
-            gen.visit_assign_command(
-                &ast::Identifier::VarAccess { name: counter_name.clone() },
-                &ast::Expression::Compound {
-                    left: ast::Value::Identifier(ast::Identifier::VarAccess { name: counter_name.clone() }),
-                    op: if ascending { ast::ExprOp::Plus } else { ast::ExprOp::Minus },
-                    right: ast::Value::Num(1),
-                }
-            );
-        });
+        self.emit_while(
+            &ast::Condition {
+                left: ast::Value::Identifier(ast::Identifier::VarAccess {
+                    name: counter_name.clone(),
+                }),
+                op: if ascending {
+                    ast::RelOp::LEQ
+                } else {
+                    ast::RelOp::GEQ
+                },
+                right: ast::Value::Identifier(ast::Identifier::VarAccess {
+                    name: tmp_name.clone(),
+                }),
+            },
+            |gen| {
+                gen.visit_commands(commands);
+                gen.visit_assign_command(
+                    &ast::Identifier::VarAccess {
+                        name: counter_name.clone(),
+                    },
+                    &ast::Expression::Compound {
+                        left: ast::Value::Identifier(ast::Identifier::VarAccess {
+                            name: counter_name.clone(),
+                        }),
+                        op: if ascending {
+                            ast::ExprOp::Plus
+                        } else {
+                            ast::ExprOp::Minus
+                        },
+                        right: ast::Value::Num(1),
+                    },
+                );
+            },
+        );
 
         self.pop_local(tmp);
         self.pop_local(counter_var);
@@ -171,38 +231,51 @@ impl Visitor for CodeGenerator {
         self.emit(Instruction::Put);
     }
 
-    fn visit_assign_command(&mut self, target: &ast::Identifier, expr: &ast::Expression) -> Self::Result {
+    fn visit_assign_command(
+        &mut self,
+        target: &ast::Identifier,
+        expr: &ast::Expression,
+    ) -> Self::Result {
         self.visit(target);
         self.emit_pre_store_visited();
         self.visit(expr);
         self.emit_store_visited();
     }
-//
-//    fn visit_commands(&mut self, commands: &ast::Commands) -> Self::Result {
-//        unimplemented!()
-//    }
-//
-//    fn visit_command(&mut self, command: &ast::Command) -> Self::Result {
-//        unimplemented!()
-//    }
+
+    //
+    // fn visit_commands(&mut self, commands: &ast::Commands) -> Self::Result {
+    //     unimplemented!()
+    // }
+    //
+    // fn visit_command(&mut self, command: &ast::Command) -> Self::Result {
+    //     unimplemented!()
+    // }
 
     fn visit_simple_expression(&mut self, value: &ast::Value) -> Self::Result {
         self.visit(value);
         self.emit_load_visited();
     }
 
-    fn visit_compound_expression(&mut self, left: &ast::Value, op: &ast::ExprOp, right: &ast::Value) -> Self::Result {
+    fn visit_compound_expression(
+        &mut self,
+        left: &ast::Value,
+        op: &ast::ExprOp,
+        right: &ast::Value,
+    ) -> Self::Result {
         self.visit(right);
         self.emit_load_visited();
         let temp = self.emit_temporary_store();
         self.visit(left);
         self.emit_load_visited();
-        self.emit(Instruction::Operation { op: *op, operand: temp });
+        self.emit(Instruction::Operation {
+            op: *op,
+            operand: temp,
+        });
     }
 
-//    fn visit_expression(&mut self, expr: &ast::Expression) -> Self::Result {
-//        unimplemented!()
-//    }
+    // fn visit_expression(&mut self, expr: &ast::Expression) -> Self::Result {
+    //     unimplemented!()
+    // }
 
     fn visit_condition(&mut self, condition: &ast::Condition) -> Self::Result {
         self.visit_compound_expression(&condition.left, &ExprOp::Minus, &condition.right);
@@ -221,12 +294,12 @@ impl Visitor for CodeGenerator {
                 let index_index = self.find_variable_by_name(index).unwrap().id();
 
                 self.push_access(Access::ArrayDynamic(name_index, index_index))
-            },
+            }
             ArrConstAccess { name, index } => {
                 let name_index = self.find_variable_by_name(name).unwrap().id();
                 self.context.register_constant(Constant(*index));
                 self.push_access(Access::ArrayStatic(name_index, Constant(*index)));
-            },
+            }
             VarAccess { name } => {
                 let name_index = self.find_variable_by_name(name).unwrap().id();
                 self.push_access(Access::Variable(name_index));

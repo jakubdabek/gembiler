@@ -1,10 +1,10 @@
-use std::str::FromStr;
-use std::io;
-use std::io::{Write as _, BufRead as _};
-use std::marker::PhantomData;
-use std::fmt::{self, Display};
 use std::cell::RefCell;
+use std::fmt::{self, Display};
+use std::io;
+use std::io::{BufRead as _, Write as _};
+use std::marker::PhantomData;
 use std::rc::Rc;
+use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
@@ -27,7 +27,7 @@ pub struct ConsoleWorld<T> {
     phantom: PhantomData<T>,
 }
 
-impl <T> ConsoleWorld<T> {
+impl<T> ConsoleWorld<T> {
     pub fn new(verbose: bool) -> ConsoleWorld<T> {
         ConsoleWorld {
             verbose,
@@ -38,14 +38,18 @@ impl <T> ConsoleWorld<T> {
 
 fn parse_line<F: FromStr>() -> Result<F, F::Err> {
     let mut buf = String::new();
-    io::stdin().lock().read_line(&mut buf).expect("error reading stdin");
+    io::stdin()
+        .lock()
+        .read_line(&mut buf)
+        .expect("error reading stdin");
 
     buf.trim_end_matches(&['\n', '\r'][..]).parse()
 }
 
-impl <T: FromStr + Display> World<T> for ConsoleWorld<T> {
+impl<T: FromStr + Display> World<T> for ConsoleWorld<T> {
     fn get(&mut self) -> Result<T, Error> {
-        print!("? "); io::stdout().flush().unwrap();
+        print!("? ");
+        io::stdout().flush().unwrap();
         parse_line().map_err(|_| Error::InvalidInput)
     }
 
@@ -67,7 +71,7 @@ pub struct MemoryWorld<T> {
     logs: Vec<String>,
 }
 
-impl <T> MemoryWorld<T> {
+impl<T> MemoryWorld<T> {
     pub fn new(mut inputs: Vec<T>) -> MemoryWorld<T> {
         inputs.reverse();
         MemoryWorld {
@@ -81,12 +85,12 @@ impl <T> MemoryWorld<T> {
         &self.outputs
     }
 
-    pub fn logs(&self) -> impl Iterator<Item=&str> {
+    pub fn logs(&self) -> impl Iterator<Item = &str> {
         self.logs.iter().map(|s| s.as_str())
     }
 }
 
-impl <T: Clone> World<T> for MemoryWorld<T> {
+impl<T: Clone> World<T> for MemoryWorld<T> {
     fn get(&mut self) -> Result<T, Error> {
         if let Some(val) = self.inputs.pop() {
             Ok(val)

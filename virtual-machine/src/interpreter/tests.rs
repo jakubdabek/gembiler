@@ -1,9 +1,9 @@
-use std::rc::Rc;
-use std::cell::RefCell;
-use crate::interpreter::{Interpreter, MemoryValue, Error};
-use crate::interpreter::world::{self, MemoryWorld};
 use crate::instruction::Instruction;
 use crate::interpreter;
+use crate::interpreter::world::{self, MemoryWorld};
+use crate::interpreter::{Error, Interpreter, MemoryValue};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 type TestWorld = MemoryWorld<MemoryValue>;
 type TestWorldRc = Rc<RefCell<TestWorld>>;
@@ -12,7 +12,10 @@ fn get_world(inputs: Vec<MemoryValue>) -> TestWorldRc {
     Rc::new(RefCell::new(MemoryWorld::new(inputs)))
 }
 
-fn interpret(inputs: Vec<MemoryValue>, program: Vec<Instruction>) -> (TestWorldRc, Result<u64, Error>) {
+fn interpret(
+    inputs: Vec<MemoryValue>,
+    program: Vec<Instruction>,
+) -> (TestWorldRc, Result<u64, Error>) {
     let world = get_world(inputs);
     let mut interpreter = Interpreter::new(world::upcast(Rc::clone(&world)), program);
 
@@ -33,20 +36,14 @@ fn halt() {
 
 #[test]
 fn uninitialized() {
-    let (_, result) = interpret(vec![], vec![
-        Instruction::Load(1),
-        Instruction::Halt,
-    ]);
+    let (_, result) = interpret(vec![], vec![Instruction::Load(1), Instruction::Halt]);
 
     assert_eq!(result, Err(Error::UninitializedMemoryAccess));
 }
 
 #[test]
 fn simple() {
-    let program = vec![
-        Instruction::Sub(0),
-        Instruction::Halt,
-    ];
+    let program = vec![Instruction::Sub(0), Instruction::Halt];
 
     let cost = program.iter().map(|i| i.cost()).sum();
 
@@ -57,11 +54,7 @@ fn simple() {
 
 #[test]
 fn simple_output() {
-    let program = vec![
-        Instruction::Sub(0),
-        Instruction::Put,
-        Instruction::Halt,
-    ];
+    let program = vec![Instruction::Sub(0), Instruction::Put, Instruction::Halt];
 
     let cost = program.iter().map(|i| i.cost()).sum();
 
@@ -73,11 +66,7 @@ fn simple_output() {
 
 #[test]
 fn simple_io() {
-    let program = vec![
-        Instruction::Get,
-        Instruction::Put,
-        Instruction::Halt,
-    ];
+    let program = vec![Instruction::Get, Instruction::Put, Instruction::Halt];
 
     let cost = program.iter().map(|i| i.cost()).sum();
     let val = interpreter::memval(42);

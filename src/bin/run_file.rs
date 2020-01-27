@@ -1,6 +1,6 @@
 use gembiler::code_generator::{intermediate, translator};
-use virtual_machine::interpreter;
 use std::env;
+use virtual_machine::interpreter;
 
 fn run_file(path: &str, debug: bool) {
     let program = parser::parse_file(path);
@@ -13,12 +13,12 @@ fn run_file(path: &str, debug: bool) {
             match result {
                 Ok(cost) => {
                     println!("Run successful, cost: {}", cost);
-                },
+                }
                 Err(error) => {
                     println!("Interpreter error: {:?}", error);
                 }
             }
-        },
+        }
         Err(err) => println!("{}", err),
     }
 }

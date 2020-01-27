@@ -49,14 +49,14 @@ impl Visitable for Identifier {
 pub trait VisitorResult: Sized {
     fn identity() -> Self;
     fn combine(self, new: Self) -> Self;
-    fn combine_collection<I: IntoIterator<Item=Self>>(collection: I) -> Self {
+    fn combine_collection<I: IntoIterator<Item = Self>>(collection: I) -> Self {
         collection.into_iter().fold(Self::identity(), Self::combine)
     }
 }
 
 pub struct ResultCombineErr<T, E: VisitorResult>(Result<T, E>);
 
-impl <T, E: VisitorResult> ResultCombineErr<T, E> {
+impl<T, E: VisitorResult> ResultCombineErr<T, E> {
     pub fn new_err(e: E) -> Self {
         ResultCombineErr(Err(e))
     }
@@ -74,13 +74,13 @@ impl <T, E: VisitorResult> ResultCombineErr<T, E> {
     }
 }
 
-impl <T, E: VisitorResult> From<Result<T, E>> for ResultCombineErr<T, E> {
+impl<T, E: VisitorResult> From<Result<T, E>> for ResultCombineErr<T, E> {
     fn from(result: Result<T, E>) -> Self {
         ResultCombineErr(result)
     }
 }
 
-impl <T, E: VisitorResult> Into<Result<T, E>> for ResultCombineErr<T, E> {
+impl<T, E: VisitorResult> Into<Result<T, E>> for ResultCombineErr<T, E> {
     fn into(self) -> Result<T, E> {
         self.0
     }
@@ -88,7 +88,7 @@ impl <T, E: VisitorResult> Into<Result<T, E>> for ResultCombineErr<T, E> {
 
 pub struct VisitorResultVec<T>(Vec<T>);
 
-impl <T> VisitorResultVec<T> {
+impl<T> VisitorResultVec<T> {
     pub fn as_vec(&self) -> &Vec<T> {
         &self.0
     }
@@ -98,7 +98,7 @@ impl <T> VisitorResultVec<T> {
     }
 }
 
-impl <T> VisitorResult for VisitorResultVec<T> {
+impl<T> VisitorResult for VisitorResultVec<T> {
     fn identity() -> Self {
         vec![].into()
     }
@@ -109,19 +109,19 @@ impl <T> VisitorResult for VisitorResultVec<T> {
     }
 }
 
-impl <T> From<Vec<T>> for VisitorResultVec<T> {
+impl<T> From<Vec<T>> for VisitorResultVec<T> {
     fn from(v: Vec<T>) -> Self {
         Self(v)
     }
 }
 
-impl <T> Into<Vec<T>> for VisitorResultVec<T> {
+impl<T> Into<Vec<T>> for VisitorResultVec<T> {
     fn into(self) -> Vec<T> {
         self.0
     }
 }
 
-impl <T: Default, C: VisitorResult> VisitorResult for ResultCombineErr<T, C> {
+impl<T: Default, C: VisitorResult> VisitorResult for ResultCombineErr<T, C> {
     fn identity() -> Self {
         ResultCombineErr(Ok(T::default()))
     }
@@ -148,7 +148,7 @@ impl VisitorResult for () {
         ()
     }
 
-    fn combine_collection<I: IntoIterator<Item=Self>>(_: I) -> Self {
+    fn combine_collection<I: IntoIterator<Item = Self>>(_: I) -> Self {
         ()
     }
 }
@@ -160,8 +160,13 @@ pub trait Visitor: Sized {
         visitable.accept(self)
     }
 
-    fn visit_collection<'a, V: Visitable + 'a, I: IntoIterator<Item=&'a V>>(&mut self, collection: I) -> Self::Result
-    where I::IntoIter: ExactSizeIterator {
+    fn visit_collection<'a, V: Visitable + 'a, I: IntoIterator<Item = &'a V>>(
+        &mut self,
+        collection: I,
+    ) -> Self::Result
+    where
+        I::IntoIter: ExactSizeIterator,
+    {
         let iter = collection.into_iter();
         let mut results = Vec::with_capacity(iter.len());
         for v in iter {
@@ -186,28 +191,37 @@ pub trait Visitor: Sized {
 
     fn visit_declaration(&mut self, declaration: &Declaration) -> Self::Result;
 
-    fn visit_if_else_command(&mut self, condition: &Condition, positive: &Commands, negative: &Commands) -> Self::Result {
+    fn visit_if_else_command(
+        &mut self,
+        condition: &Condition,
+        positive: &Commands,
+        negative: &Commands,
+    ) -> Self::Result {
         self.visit(condition)
             .combine(self.visit_commands(positive))
             .combine(self.visit_commands(negative))
     }
 
     fn visit_if_command(&mut self, condition: &Condition, positive: &Commands) -> Self::Result {
-        self.visit(condition)
-            .combine(self.visit_commands(positive))
+        self.visit(condition).combine(self.visit_commands(positive))
     }
 
     fn visit_while_command(&mut self, condition: &Condition, commands: &Commands) -> Self::Result {
-        self.visit(condition)
-            .combine(self.visit_commands(commands))
+        self.visit(condition).combine(self.visit_commands(commands))
     }
 
     fn visit_do_command(&mut self, commands: &Commands, condition: &Condition) -> Self::Result {
-        self.visit_commands(commands)
-            .combine(self.visit(condition))
+        self.visit_commands(commands).combine(self.visit(condition))
     }
 
-    fn visit_for_command(&mut self, _counter: &str, _ascending: bool, from: &Value, to: &Value, commands: &Commands) -> Self::Result {
+    fn visit_for_command(
+        &mut self,
+        _counter: &str,
+        _ascending: bool,
+        from: &Value,
+        to: &Value,
+        commands: &Commands,
+    ) -> Self::Result {
         self.visit(from)
             .combine(self.visit(to))
             .combine(self.visit_commands(commands))
@@ -222,8 +236,7 @@ pub trait Visitor: Sized {
     }
 
     fn visit_assign_command(&mut self, target: &Identifier, expr: &Expression) -> Self::Result {
-        self.visit(target)
-            .combine(self.visit(expr))
+        self.visit(target).combine(self.visit(expr))
     }
 
     fn visit_commands(&mut self, commands: &Commands) -> Self::Result {
@@ -235,11 +248,20 @@ pub trait Visitor: Sized {
             Command::IfElse {
                 condition,
                 positive,
-                negative
+                negative,
             } => self.visit_if_else_command(condition, positive, negative),
-            Command::If { condition, positive } => self.visit_if_command(condition, positive),
-            Command::While { condition, commands } => self.visit_while_command(condition, commands),
-            Command::Do { commands, condition } => self.visit_do_command(commands, condition),
+            Command::If {
+                condition,
+                positive,
+            } => self.visit_if_command(condition, positive),
+            Command::While {
+                condition,
+                commands,
+            } => self.visit_while_command(condition, commands),
+            Command::Do {
+                commands,
+                condition,
+            } => self.visit_do_command(commands, condition),
             Command::For {
                 counter,
                 ascending,
@@ -257,25 +279,27 @@ pub trait Visitor: Sized {
         self.visit(value)
     }
 
-    fn visit_compound_expression(&mut self, left: &Value, _op: &ExprOp, right: &Value) -> Self::Result {
-        self.visit(left)
-            .combine(self.visit(right))
+    fn visit_compound_expression(
+        &mut self,
+        left: &Value,
+        _op: &ExprOp,
+        right: &Value,
+    ) -> Self::Result {
+        self.visit(left).combine(self.visit(right))
     }
 
     fn visit_expression(&mut self, expr: &Expression) -> Self::Result {
         match expr {
             Expression::Simple { value } => self.visit_simple_expression(value),
-            Expression::Compound {
-                left,
-                op,
-                right,
-            } => self.visit_compound_expression(left, op, right),
+            Expression::Compound { left, op, right } => {
+                self.visit_compound_expression(left, op, right)
+            }
         }
     }
 
     fn visit_condition(&mut self, condition: &Condition) -> Self::Result {
-        self.visit(&condition.left).
-            combine(self.visit(&condition.right))
+        self.visit(&condition.left)
+            .combine(self.visit(&condition.right))
     }
 
     fn visit_num_value(&mut self, num: i64) -> Self::Result;

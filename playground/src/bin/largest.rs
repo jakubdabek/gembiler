@@ -1,13 +1,13 @@
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct Bruh<'a> {
-    mystring: &'a str
+    mystring: &'a str,
 }
 
 trait Largest<T> {
     fn largest(self) -> Option<T>;
 }
 
-impl <T: PartialOrd, U: IntoIterator<Item=T>> Largest<T> for U {
+impl<T: PartialOrd, U: IntoIterator<Item = T>> Largest<T> for U {
     fn largest(self) -> Option<T> {
         let mut iter = self.into_iter();
         let mut largest = iter.next()?;
@@ -31,17 +31,19 @@ fn main() {
 
     println!("{:?}", bruh);
 
-    let ref mut numbers = vec![34, 50, 25, 100, 64];
+    let numbers = &mut vec![34, 50, 25, 100, 64];
     let result = numbers.largest().unwrap();
     println!("The largest number is {}", result);
     *result += 10;
     println!("Numbers are now {:?}", numbers);
 
-    let ref chars = vec!['y', 'm', 'a', 'q'];
+    let chars = &vec!['y', 'm', 'a', 'q'];
     let result = chars.largest().unwrap();
     println!("The largest char is {}", result);
 
-    let f = move || { println!("{:?}", bruh); };
+    let f = move || {
+        println!("{:?}", bruh);
+    };
 
     f();
     f();
@@ -76,8 +78,13 @@ trait MyFrom<T>: Sized {
     fn from(t: T) -> Self;
 }
 
-impl <T, U> MyFrom<U> for T where U: MyInto<T> {
-    fn from(u: U) -> T { u.into() }
+impl<T, U> MyFrom<U> for T
+where
+    U: MyInto<T>,
+{
+    fn from(u: U) -> T {
+        u.into()
+    }
 }
 
 #[cfg(test)]
@@ -128,7 +135,7 @@ mod largest_tests {
         assert_eq!(value_result, Some(2));
     }
 
-    use rand::{thread_rng, seq::SliceRandom};
+    use rand::{seq::SliceRandom, thread_rng};
 
     #[test]
     fn distinct_elements() {
@@ -142,7 +149,7 @@ mod largest_tests {
 
     #[test]
     fn repeating_elements() {
-        let ref mut vec: Vec<_> = vec![5,1,2,7,5,6,7,2,7,6];
+        let ref mut vec: Vec<_> = vec![5, 1, 2, 7, 5, 6, 7, 2, 7, 6];
         let result = vec.largest();
         assert_eq!(result, Some(&mut 7));
     }

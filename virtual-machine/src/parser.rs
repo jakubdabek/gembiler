@@ -11,9 +11,15 @@ use pest::iterators::Pairs;
 pub fn create_program(text: &str) -> Result<Vec<Instruction>, pest::error::Error<Rule>> {
     let mut assembler: Pairs<Rule> = AssemblerParser::parse(Rule::assembler, text)?;
 
-    let instructions = assembler.next().unwrap().into_inner()
+    let instructions = assembler
+        .next()
+        .unwrap()
+        .into_inner()
         // .inspect(|pair| println!("{:?}", pair))
-        .filter(|pair| { let r = pair.as_rule();  r != Rule::comment && r != Rule::EOI })
+        .filter(|pair| {
+            let r = pair.as_rule();
+            r != Rule::comment && r != Rule::EOI
+        })
         .map(|pair| {
             let mut pairs = pair.into_inner();
             let instr = pairs.next().unwrap();

@@ -1,64 +1,76 @@
-use gembiler::code_generator::translator::Generator;
 use gembiler::code_generator::intermediate;
-use virtual_machine::interpreter;
-use virtual_machine::interpreter::{MemoryValue, memval};
+use gembiler::code_generator::translator::Generator;
 use test_data::TEST_DATA;
+use virtual_machine::interpreter;
+use virtual_machine::interpreter::{memval, MemoryValue};
 
-use std::fmt::{self, Write as _, Display, Formatter, Error, Debug};
+use std::fmt::{self, Debug, Display, Error, Formatter, Write as _};
 
-fn memval_vec<'a, I: IntoIterator<Item=&'a i64>>(iter: I) -> Vec<MemoryValue> {
+fn memval_vec<'a, I: IntoIterator<Item = &'a i64>>(iter: I) -> Vec<MemoryValue> {
     iter.into_iter().map(|v| interpreter::memval(*v)).collect()
 }
 
-fn big_memval_vec<'a, I: IntoIterator<Item=&'a str>, T>(iter: I) -> Vec<MemoryValue> {
-    iter.into_iter().map(|v| v.parse().expect("invalid number")).collect()
+fn big_memval_vec<'a, I: IntoIterator<Item = &'a str>, T>(iter: I) -> Vec<MemoryValue> {
+    iter.into_iter()
+        .map(|v| v.parse().expect("invalid number"))
+        .collect()
 }
 
 fn print_readable_error<'a, I1, I2>(len: usize, output: I1, expected: I2) -> !
-where I1: Iterator<Item=Option<&'a MemoryValue>>,
-      I2: Iterator<Item=Option<&'a MemoryValue>> {
-    let readable_message: Result<_, fmt::Error> = output
-        .zip(expected)
-        .fold(Ok(String::with_capacity(len * 23)), |buf, (out, exp)| {
-            let mut buf = buf?;
-            if let Some(out) = out {
-                write!(buf, "{:-8}", out)?;
-            } else {
-                write!(buf, "  None  ")?;
-            }
+where
+    I1: Iterator<Item = Option<&'a MemoryValue>>,
+    I2: Iterator<Item = Option<&'a MemoryValue>>,
+{
+    let readable_message: Result<_, fmt::Error> =
+        output
+            .zip(expected)
+            .fold(Ok(String::with_capacity(len * 23)), |buf, (out, exp)| {
+                let mut buf = buf?;
+                if let Some(out) = out {
+                    write!(buf, "{:-8}", out)?;
+                } else {
+                    write!(buf, "  None  ")?;
+                }
 
-            write!(buf, " <=> ")?;
+                write!(buf, " <=> ")?;
 
-            if let Some(exp) = exp {
-                write!(buf, "{}", exp)?;
-            } else {
-                write!(buf, "  None  ")?;
-            }
+                if let Some(exp) = exp {
+                    write!(buf, "{}", exp)?;
+                } else {
+                    write!(buf, "  None  ")?;
+                }
 
-            writeln!(buf, "")?;
+                writeln!(buf, "")?;
 
-            Ok(buf)
-        });
+                Ok(buf)
+            });
 
-    panic!("assertion failed: `(output == expected)`:\n{}", readable_message.expect("writing to String failed"));
+    panic!(
+        "assertion failed: `(output == expected)`:\n{}",
+        readable_message.expect("writing to String failed")
+    );
 }
 
-struct DebugMultilineCollectionPrinter<'a, I>(&'a I) where &'a I: IntoIterator;
+struct DebugMultilineCollectionPrinter<'a, I>(&'a I)
+where
+    &'a I: IntoIterator;
 struct DebugDisplayWrapper<T>(T);
 
-impl <T: Display> Debug for DebugDisplayWrapper<T> {
+impl<T: Display> Debug for DebugDisplayWrapper<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{}", self.0)
     }
 }
 
-impl <'a, I> Debug for DebugMultilineCollectionPrinter<'a, I>
-    where
-        &'a I: IntoIterator,
-        <&'a I as IntoIterator>::Item: Display,
+impl<'a, I> Debug for DebugMultilineCollectionPrinter<'a, I>
+where
+    &'a I: IntoIterator,
+    <&'a I as IntoIterator>::Item: Display,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        f.debug_list().entries(self.0.into_iter().map(DebugDisplayWrapper)).finish()
+        f.debug_list()
+            .entries(self.0.into_iter().map(DebugDisplayWrapper))
+            .finish()
     }
 }
 
@@ -75,19 +87,27 @@ fn check_success(code: &str, input: Vec<MemoryValue>, expected: &[MemoryValue]) 
     let generator = Generator::new(ir.unwrap());
     let translated = generator.translate();
     let (run_result, logs) = virtual_machine::interpreter::run_debug(translated, input, true);
-//    let run_result = virtual_machine::interpreter::run_extended(translated, input);
+    // let run_result = virtual_machine::interpreter::run_extended(translated, input);
 
     println!("{:?}", run_result);
-//    println!("{}", logs.join("\n"));
+    // println!("{}", logs.join("\n"));
 
     let (_cost, output) = run_result.unwrap();
 
     if output != expected {
         let (output_len, expected_len) = (output.len(), expected.len());
         if output_len > expected_len {
-            print_readable_error(output_len, &mut output.iter().map(Some), &mut expected.iter().map(Some).chain(std::iter::repeat(None)))
+            print_readable_error(
+                output_len,
+                &mut output.iter().map(Some),
+                &mut expected.iter().map(Some).chain(std::iter::repeat(None)),
+            )
         } else {
-            print_readable_error(expected_len, &mut output.iter().map(Some).chain(std::iter::repeat(None)), &mut expected.iter().map(Some))
+            print_readable_error(
+                expected_len,
+                &mut output.iter().map(Some).chain(std::iter::repeat(None)),
+                &mut expected.iter().map(Some),
+            )
         };
     }
 
@@ -104,11 +124,11 @@ macro_rules! make_test {
                 check_success(
                     data.text,
                     memval_vec(input),
-                    memval_vec(expected).as_slice()
+                    memval_vec(expected).as_slice(),
                 );
             }
         }
-    }
+    };
 }
 
 make_test!(bitstring);
@@ -280,17 +300,7 @@ fn bonus2() {
 
     let input = memval_vec(&[]);
     let expected = memval_vec(&[
-        2, 3,
-        3, 1,
-        5, 2,
-        7, 1,
-        13, 1,
-        41, 1,
-        61, 1,
-        641, 1,
-        1321, 1,
-        6700417, 1,
-        613566757, 1,
+        2, 3, 3, 1, 5, 2, 7, 1, 13, 1, 41, 1, 61, 1, 641, 1, 1321, 1, 6700417, 1, 613566757, 1,
         715827883, 1,
     ]);
 

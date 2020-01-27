@@ -30,10 +30,7 @@ pub struct UniqueVariable {
 
 impl UniqueVariable {
     pub fn new(id: VariableIndex, variable: Variable) -> Self {
-        UniqueVariable {
-            id,
-            variable,
-        }
+        UniqueVariable { id, variable }
     }
 
     pub fn id(&self) -> VariableIndex {
@@ -60,9 +57,7 @@ pub struct VariableIndex {
 
 impl VariableIndex {
     pub fn new(id: usize) -> Self {
-        VariableIndex {
-            id,
-        }
+        VariableIndex { id }
     }
 
     pub fn value(&self) -> usize {

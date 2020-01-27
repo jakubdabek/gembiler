@@ -1,10 +1,9 @@
 use gembiler::code_generator::{intermediate, translator};
 use std::env;
 use std::fs::File;
-use std::error::Error;
 use std::io::Write;
-use virtual_machine::instruction::InstructionListPrinter;
 use std::path::Path;
+use virtual_machine::instruction::InstructionListPrinter;
 
 fn compile<P1: AsRef<Path>, P2: AsRef<Path>>(path: P1, output_path: P2) {
     let program = parser::parse_file(path);
@@ -17,12 +16,16 @@ fn compile<P1: AsRef<Path>, P2: AsRef<Path>>(path: P1, output_path: P2) {
 
             let display = output_path.as_ref().display();
             let mut file = match File::create(&output_path) {
-                Err(why) => panic!("couldn't create {}: {}", display, why.description()),
+                Err(why) => panic!("couldn't create {}: {}", display, why),
                 Ok(file) => file,
             };
 
-            file.write_fmt(format_args!("{}", InstructionListPrinter(translated.as_slice()))).expect("writing to file failed");
-        },
+            file.write_fmt(format_args!(
+                "{}",
+                InstructionListPrinter(translated.as_slice())
+            ))
+            .expect("writing to file failed");
+        }
         Err(err) => println!("{}", err),
     }
 }

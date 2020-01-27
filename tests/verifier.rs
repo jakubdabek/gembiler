@@ -1,15 +1,13 @@
-use ::gembiler::verifier::{SemanticVerifier, Error, verify};
+use ::gembiler::verifier::{verify, Error, SemanticVerifier};
 use ::parser::ast::*;
 
 #[test]
 fn no_declarations_ok() {
     let program = Program {
         declarations: None,
-        commands: vec![
-            Command::Write {
-                value: Value::Num(1),
-            }
-        ],
+        commands: vec![Command::Write {
+            value: Value::Num(1),
+        }],
     };
 
     let result = verify(&program);
@@ -21,19 +19,17 @@ fn no_declarations_ok() {
 fn no_declarations_err_undeclared() {
     let program = Program {
         declarations: None,
-        commands: vec![
-            Command::Read {
-                target: Identifier::VarAccess {
-                    name: String::from("a"),
-                },
+        commands: vec![Command::Read {
+            target: Identifier::VarAccess {
+                name: String::from("a"),
             },
-        ],
+        }],
     };
 
     let result = verify(&program);
-    let expected_errors = vec![
-        Error::UndeclaredVariable { name: String::from("a") },
-    ];
+    let expected_errors = vec![Error::UndeclaredVariable {
+        name: String::from("a"),
+    }];
 
     assert_eq!(result, Err(expected_errors));
 }
@@ -58,8 +54,12 @@ fn no_declarations_err_undeclared_all() {
 
     let result = verify(&program);
     let expected_errors = vec![
-        Error::UndeclaredVariable { name: String::from("a") },
-        Error::UndeclaredVariable { name: String::from("b") },
+        Error::UndeclaredVariable {
+            name: String::from("a"),
+        },
+        Error::UndeclaredVariable {
+            name: String::from("b"),
+        },
     ];
 
     assert_eq!(result, Err(expected_errors));
@@ -69,21 +69,17 @@ fn no_declarations_err_undeclared_all() {
 fn no_declarations_for_ok() {
     let program = Program {
         declarations: None,
-        commands: vec![
-            Command::For {
-                counter: "i".to_string(),
-                ascending: false,
-                from: Value::Num(1),
-                to: Value::Num(10),
-                commands: vec![
-                    Command::Write {
-                        value: Value::Identifier(Identifier::VarAccess {
-                            name: String::from("i"),
-                        }),
-                    }
-                ],
-            },
-        ],
+        commands: vec![Command::For {
+            counter: "i".to_string(),
+            ascending: false,
+            from: Value::Num(1),
+            to: Value::Num(10),
+            commands: vec![Command::Write {
+                value: Value::Identifier(Identifier::VarAccess {
+                    name: String::from("i"),
+                }),
+            }],
+        }],
     };
 
     let result = verify(&program);
@@ -101,25 +97,23 @@ fn no_declarations_for_err() {
                 ascending: false,
                 from: Value::Num(1),
                 to: Value::Num(10),
-                commands: vec![
-                    Command::Write {
-                        value: Value::Num(1),
-                    }
-                ],
+                commands: vec![Command::Write {
+                    value: Value::Num(1),
+                }],
             },
             Command::Write {
                 value: Value::Identifier(Identifier::VarAccess {
                     name: String::from("i"),
                 }),
-            }
+            },
         ],
     };
 
     let result = verify(&program);
 
-    let expected_errors = vec![
-        Error::UndeclaredVariable { name: String::from("i") },
-    ];
+    let expected_errors = vec![Error::UndeclaredVariable {
+        name: String::from("i"),
+    }];
 
     assert_eq!(result, Err(expected_errors));
 }
@@ -128,34 +122,30 @@ fn no_declarations_for_err() {
 fn no_declarations_nested_for_ok() {
     let program = Program {
         declarations: None,
-        commands: vec![
-            Command::For {
-                counter: "i".to_string(),
+        commands: vec![Command::For {
+            counter: "i".to_string(),
+            ascending: false,
+            from: Value::Num(1),
+            to: Value::Num(10),
+            commands: vec![Command::For {
+                counter: "j".to_string(),
                 ascending: false,
-                from: Value::Num(1),
-                to: Value::Num(10),
+                from: Value::Num(101),
+                to: Value::Num(110),
                 commands: vec![
-                    Command::For {
-                        counter: "j".to_string(),
-                        ascending: false,
-                        from: Value::Num(101),
-                        to: Value::Num(110),
-                        commands: vec![
-                            Command::Write {
-                                value: Value::Identifier(Identifier::VarAccess {
-                                    name: String::from("i"),
-                                }),
-                            },
-                            Command::Write {
-                                value: Value::Identifier(Identifier::VarAccess {
-                                    name: String::from("j"),
-                                }),
-                            }
-                        ],
+                    Command::Write {
+                        value: Value::Identifier(Identifier::VarAccess {
+                            name: String::from("i"),
+                        }),
+                    },
+                    Command::Write {
+                        value: Value::Identifier(Identifier::VarAccess {
+                            name: String::from("j"),
+                        }),
                     },
                 ],
-            },
-        ],
+            }],
+        }],
     };
 
     let result = verify(&program);
@@ -167,8 +157,12 @@ fn no_declarations_nested_for_ok() {
 fn simple_declarations_ok() {
     let program = Program {
         declarations: Some(vec![
-            Declaration::Var { name: String::from("a") },
-            Declaration::Var { name: String::from("b") },
+            Declaration::Var {
+                name: String::from("a"),
+            },
+            Declaration::Var {
+                name: String::from("b"),
+            },
         ]),
         commands: vec![
             Command::Read {
@@ -192,9 +186,9 @@ fn simple_declarations_ok() {
 #[test]
 fn simple_declarations_err() {
     let program = Program {
-        declarations: Some(vec![
-            Declaration::Var { name: String::from("a") },
-        ]),
+        declarations: Some(vec![Declaration::Var {
+            name: String::from("a"),
+        }]),
         commands: vec![
             Command::Read {
                 target: Identifier::VarAccess {
@@ -215,9 +209,9 @@ fn simple_declarations_err() {
     };
 
     let result = verify(&program);
-    let expected_errors = vec![
-        Error::UndeclaredVariable { name: String::from("b") },
-    ];
+    let expected_errors = vec![Error::UndeclaredVariable {
+        name: String::from("b"),
+    }];
 
     assert_eq!(result, Err(expected_errors));
 }
@@ -226,8 +220,14 @@ fn simple_declarations_err() {
 fn arr_declarations_ok() {
     let program = Program {
         declarations: Some(vec![
-            Declaration::Var { name: String::from("a") },
-            Declaration::Array { name: String::from("arr"), start: 0, end: 10 },
+            Declaration::Var {
+                name: String::from("a"),
+            },
+            Declaration::Array {
+                name: String::from("arr"),
+                start: 0,
+                end: 10,
+            },
         ]),
         commands: vec![
             Command::Read {
@@ -277,9 +277,15 @@ fn arr_declarations_err() {
 
     let result = verify(&program);
     let expected_errors = vec![
-        Error::UndeclaredVariable { name: String::from("arr") },
-        Error::UndeclaredVariable { name: String::from("arr") },
-        Error::UndeclaredVariable { name: String::from("a") },
+        Error::UndeclaredVariable {
+            name: String::from("arr"),
+        },
+        Error::UndeclaredVariable {
+            name: String::from("arr"),
+        },
+        Error::UndeclaredVariable {
+            name: String::from("a"),
+        },
     ];
 
     assert_eq!(result, Err(expected_errors));
@@ -295,27 +301,29 @@ fn no_declarations_for_modification_err() {
                 ascending: false,
                 from: Value::Num(1),
                 to: Value::Num(10),
-                commands: vec![
-                    Command::Read {
-                        target: Identifier::VarAccess {
-                            name: String::from("i"),
-                        }
+                commands: vec![Command::Read {
+                    target: Identifier::VarAccess {
+                        name: String::from("i"),
                     },
-                ],
+                }],
             },
             Command::Write {
                 value: Value::Identifier(Identifier::VarAccess {
                     name: String::from("i"),
                 }),
-            }
+            },
         ],
     };
 
     let result = verify(&program);
 
     let expected_errors = vec![
-        Error::ForCounterModification { name: String::from("i") },
-        Error::UndeclaredVariable { name: String::from("i") },
+        Error::ForCounterModification {
+            name: String::from("i"),
+        },
+        Error::UndeclaredVariable {
+            name: String::from("i"),
+        },
     ];
 
     assert_eq!(result, Err(expected_errors));
@@ -325,41 +333,41 @@ fn no_declarations_for_modification_err() {
 fn no_declarations_nested_for_modification_err() {
     let program = Program {
         declarations: None,
-        commands: vec![
-            Command::For {
-                counter: "i".to_string(),
+        commands: vec![Command::For {
+            counter: "i".to_string(),
+            ascending: false,
+            from: Value::Num(1),
+            to: Value::Num(10),
+            commands: vec![Command::For {
+                counter: "j".to_string(),
                 ascending: false,
-                from: Value::Num(1),
-                to: Value::Num(10),
+                from: Value::Num(101),
+                to: Value::Num(110),
                 commands: vec![
-                    Command::For {
-                        counter: "j".to_string(),
-                        ascending: false,
-                        from: Value::Num(101),
-                        to: Value::Num(110),
-                        commands: vec![
-                            Command::Read {
-                                target: Identifier::VarAccess {
-                                    name: String::from("i"),
-                                },
-                            },
-                            Command::Read {
-                                target: Identifier::VarAccess {
-                                    name: String::from("j"),
-                                },
-                            }
-                        ],
+                    Command::Read {
+                        target: Identifier::VarAccess {
+                            name: String::from("i"),
+                        },
+                    },
+                    Command::Read {
+                        target: Identifier::VarAccess {
+                            name: String::from("j"),
+                        },
                     },
                 ],
-            },
-        ],
+            }],
+        }],
     };
 
     let result = verify(&program);
 
     let expected_errors = vec![
-        Error::ForCounterModification { name: String::from("i") },
-        Error::ForCounterModification { name: String::from("j") },
+        Error::ForCounterModification {
+            name: String::from("i"),
+        },
+        Error::ForCounterModification {
+            name: String::from("j"),
+        },
     ];
 
     assert_eq!(result, Err(expected_errors));
@@ -368,9 +376,11 @@ fn no_declarations_nested_for_modification_err() {
 #[test]
 fn for_complex_err() {
     let program = Program {
-        declarations: Some(vec![
-            Declaration::Array { name: String::from("arr"), start: 0, end: 10, }
-        ]),
+        declarations: Some(vec![Declaration::Array {
+            name: String::from("arr"),
+            start: 0,
+            end: 10,
+        }]),
         commands: vec![
             Command::For {
                 counter: "i".to_string(),
@@ -381,7 +391,7 @@ fn for_complex_err() {
                     Command::Read {
                         target: Identifier::VarAccess {
                             name: String::from("i"),
-                        }
+                        },
                     },
                     Command::Assign {
                         target: Identifier::VarAccess {
@@ -402,17 +412,25 @@ fn for_complex_err() {
                 value: Value::Identifier(Identifier::VarAccess {
                     name: String::from("i"),
                 }),
-            }
+            },
         ],
     };
 
     let result = verify(&program);
 
     let expected_errors = vec![
-        Error::ForCounterModification { name: String::from("i") },
-        Error::ForCounterModification { name: String::from("i") },
-        Error::UndeclaredVariable { name: String::from("a") },
-        Error::UndeclaredVariable { name: String::from("i") },
+        Error::ForCounterModification {
+            name: String::from("i"),
+        },
+        Error::ForCounterModification {
+            name: String::from("i"),
+        },
+        Error::UndeclaredVariable {
+            name: String::from("a"),
+        },
+        Error::UndeclaredVariable {
+            name: String::from("i"),
+        },
     ];
 
     assert_eq!(result, Err(expected_errors));

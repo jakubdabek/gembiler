@@ -12,23 +12,23 @@ fn debug_file(path: &str) {
             match result {
                 Ok(cost) => {
                     println!("Run successful, cost: {}", cost);
-                },
+                }
                 Err(error) => {
                     println!("Interpreter error: {:?}", error);
                 }
             }
-        },
+        }
         Err(err) => println!("{}", err),
     }
 }
 
 fn main() {
     debug_file("test-data/program0.imp");
-//    debug_file("test-data/program1.imp");
+    // debug_file("test-data/program1.imp");
     debug_file("test-data/program2.imp");
     debug_file("jftt2019-testy/1-numbers.imp");
 
-//    debug_file("test-data/p1.imp");
+    // debug_file("test-data/p1.imp");
 
     for i in 0..=8 {
         debug_file(&format!("test-data/error{}.imp", i));

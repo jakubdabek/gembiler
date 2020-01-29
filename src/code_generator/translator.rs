@@ -349,7 +349,9 @@ impl Generator {
             }
         });
 
-        println!("generating constants: {:?}", to_generate);
+        if cfg!(debug_assertions) {
+            println!("generating constants: {:?}", to_generate);
+        }
 
         self.instruction_manager.instr_Sub(MemoryLocation(0));
 
@@ -875,15 +877,17 @@ impl Generator {
 
         self.instruction_manager.instr_Halt();
 
-        let vars = self
-            .context
-            .variables()
-            .iter()
-            .map(|v| (v, self.memory.get_location(v.id())));
-        for x in vars {
-            println!("{:?}", x);
+        if cfg!(debug_assertions) {
+            let vars = self
+                .context
+                .variables()
+                .iter()
+                .map(|v| (v, self.memory.get_location(v.id())));
+            for x in vars {
+                println!("{:?}", x);
+            }
+            println!("{:?}", self.instruction_manager.label_positions);
         }
-        println!("{:?}", self.instruction_manager.label_positions);
 
         self.instruction_manager.target_instructions
     }

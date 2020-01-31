@@ -12,6 +12,7 @@ members = ["./parser", "./virtual-machine", "./test-data", "./playground"]
 
 [features]
 bignum = ["virtual-machine/bignum"]
+default = ["bignum"]
 
 [dependencies]
 parser = { path = "./parser" }

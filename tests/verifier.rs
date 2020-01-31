@@ -1,4 +1,4 @@
-use ::gembiler::verifier::{verify, Error, SemanticVerifier};
+use ::gembiler::verifier::{verify, Error};
 use ::parser::ast::*;
 
 #[test]
@@ -10,9 +10,9 @@ fn no_declarations_ok() {
         }],
     };
 
-    let result = verify(&program);
+    let result = verify(program);
 
-    assert_eq!(result, Ok(()));
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -26,7 +26,7 @@ fn no_declarations_err_undeclared() {
         }],
     };
 
-    let result = verify(&program);
+    let result = verify(program);
     let expected_errors = vec![Error::UndeclaredVariable {
         name: String::from("a"),
     }];
@@ -52,7 +52,7 @@ fn no_declarations_err_undeclared_all() {
         ],
     };
 
-    let result = verify(&program);
+    let result = verify(program);
     let expected_errors = vec![
         Error::UndeclaredVariable {
             name: String::from("a"),
@@ -82,9 +82,9 @@ fn no_declarations_for_ok() {
         }],
     };
 
-    let result = verify(&program);
+    let result = verify(program);
 
-    assert_eq!(result, Ok(()));
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -109,7 +109,7 @@ fn no_declarations_for_err() {
         ],
     };
 
-    let result = verify(&program);
+    let result = verify(program);
 
     let expected_errors = vec![Error::UndeclaredVariable {
         name: String::from("i"),
@@ -148,9 +148,9 @@ fn no_declarations_nested_for_ok() {
         }],
     };
 
-    let result = verify(&program);
+    let result = verify(program);
 
-    assert_eq!(result, Ok(()));
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -178,9 +178,9 @@ fn simple_declarations_ok() {
         ],
     };
 
-    let result = verify(&program);
+    let result = verify(program);
 
-    assert_eq!(result, Ok(()));
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -208,7 +208,7 @@ fn simple_declarations_err() {
         ],
     };
 
-    let result = verify(&program);
+    let result = verify(program);
     let expected_errors = vec![Error::UndeclaredVariable {
         name: String::from("b"),
     }];
@@ -250,9 +250,9 @@ fn arr_declarations_ok() {
         ],
     };
 
-    let result = verify(&program);
+    let result = verify(program);
 
-    assert_eq!(result, Ok(()));
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -275,7 +275,7 @@ fn arr_declarations_err() {
         ],
     };
 
-    let result = verify(&program);
+    let result = verify(program);
     let expected_errors = vec![
         Error::UndeclaredVariable {
             name: String::from("arr"),
@@ -315,7 +315,7 @@ fn no_declarations_for_modification_err() {
         ],
     };
 
-    let result = verify(&program);
+    let result = verify(program);
 
     let expected_errors = vec![
         Error::ForCounterModification {
@@ -359,7 +359,7 @@ fn no_declarations_nested_for_modification_err() {
         }],
     };
 
-    let result = verify(&program);
+    let result = verify(program);
 
     let expected_errors = vec![
         Error::ForCounterModification {
@@ -416,7 +416,7 @@ fn for_complex_err() {
         ],
     };
 
-    let result = verify(&program);
+    let result = verify(program);
 
     let expected_errors = vec![
         Error::ForCounterModification {

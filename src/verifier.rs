@@ -54,6 +54,86 @@ impl SemanticVerifier {
             .find(|&local| local == name)
             .map(|s| s.as_str())
     }
+
+    fn check_modification(&self, name: &str) -> Result<(), Error> {
+        self.get_local(name)
+            .map_or(
+                Ok(()),
+                |_| {
+                    Err(Error::ForCounterModification {
+                        name: name.to_owned(),
+                    })
+                }
+            )
+    }
+
+    fn check_var_usage(&self, name: &str) -> Result<(), Error> {
+        self.get_global(name)
+            .map(|g| {
+                match g {
+                    Declaration::Var { .. } => Ok(()),
+                    Declaration::Array { .. } => Err(Error::InvalidVariableUsage { name: name.to_owned() }),
+                }
+            })
+            .unwrap_or(Ok(()))
+    }
+
+    fn check_array_usage(&self, name: &str) -> Result<(), Error> {
+        self.get_global(name)
+            .map(|g| {
+                match g {
+                    Declaration::Var { .. } => Err(Error::InvalidVariableUsage { name: name.to_owned() }.into()),
+                    Declaration::Array { .. } => Ok(()),
+                }
+            })
+            .unwrap_or_else(|| {
+                self.get_local(name)
+                    .map(|_| Err(Error::InvalidVariableUsage { name: name.to_owned() }.into()))
+                    .unwrap_or(Ok(()))
+            })
+    }
+
+    fn check_identifier_usage(&self, identifier: &Identifier) -> <Self as Visitor>::Result {
+        match identifier {
+            Identifier::VarAccess { name } => {
+                self.check_var_usage(name).map_err(Into::into).into()
+            },
+            Identifier::ArrAccess { name, index } => {
+                let main: ResultCombineErr<_, _> = self.check_array_usage(name).map_err(Into::into).into();
+                main.combine(
+                    self.get_global(index)
+                        .map(|g| {
+                            match g {
+                                Declaration::Var { .. } => Ok(()),
+                                Declaration::Array { .. } => Err(Error::InvalidVariableUsage { name: name.to_owned() }.into()),
+                            }
+                        })
+                        .unwrap_or(Ok(()))
+                        .into()
+                )
+            },
+            Identifier::ArrConstAccess { name, index } => {
+                self.get_global(name)
+                    .map(|g| {
+                        match g {
+                            Declaration::Var { .. } => Err(Error::InvalidVariableUsage { name: name.to_owned() }.into()),
+                            Declaration::Array { start, end, .. } => {
+                                if index >= start && index <= end {
+                                    Ok(())
+                                } else {
+                                    Err(Error::InvalidVariableUsage { name: name.to_owned() }.into())
+                                }
+                            },
+                        }
+                    })
+                    .unwrap_or_else(|| {
+                        self.get_local(name)
+                            .map(|_| Err(Error::InvalidVariableUsage { name: name.to_owned() }.into()))
+                            .unwrap_or(Ok(()))
+                    }).into()
+            },
+        }
+    }
 }
 
 impl<'a> Visitor for SemanticVerifier {
@@ -75,11 +155,11 @@ impl<'a> Visitor for SemanticVerifier {
             Declaration::Var { .. } => Self::Result::identity(),
             Declaration::Array { name, start, end } => {
                 if start > end {
-                    Err(vec![Error::InvalidArrayRange {
+                    Err(Error::InvalidArrayRange {
                         name: name.clone(),
                         start: *start,
                         end: *end,
-                    }]
+                    }
                     .into())
                     .into()
                 } else {
@@ -105,41 +185,14 @@ impl<'a> Visitor for SemanticVerifier {
     }
 
     fn visit_read_command(&mut self, target: &Identifier) -> Self::Result {
-        let target_result = self.visit(target);
-        if target_result.as_result().is_ok() {
-            let name = target.name();
-            if self.get_local(name).is_some() {
-                Err(vec![Error::ForCounterModification {
-                    name: name.to_owned(),
-                }]
-                .into())
-                .into()
-            } else {
-                target_result
-            }
-        } else {
-            target_result
-        }
+        self.visit(target)
+            .combine(self.check_modification(target.name()).map_err(Into::into).into())
     }
 
     fn visit_assign_command(&mut self, target: &Identifier, expr: &Expression) -> Self::Result {
-        let target_result = self.visit(target);
-        let res = if target_result.as_result().is_ok() {
-            let name = target.name();
-            if self.get_local(name).is_some() {
-                Err(vec![Error::ForCounterModification {
-                    name: name.to_owned(),
-                }]
-                .into())
-                .into()
-            } else {
-                target_result
-            }
-        } else {
-            target_result
-        };
-
-        res.combine(self.visit(expr))
+        self.visit(target)
+            .combine(self.check_modification(target.name()).map_err(Into::into).into())
+            .combine(self.visit(expr))
     }
 
     fn visit_num_value(&mut self, _: i64) -> Self::Result {
@@ -153,9 +206,9 @@ impl<'a> Visitor for SemanticVerifier {
                 .map(|_| ())
                 .or_else(|| self.get_local(name).map(|_| ()))
                 .ok_or(
-                    vec![Error::UndeclaredVariable {
+                    Error::UndeclaredVariable {
                         name: name.to_owned(),
-                    }]
+                    }
                     .into(),
                 )
                 .into()
@@ -163,56 +216,7 @@ impl<'a> Visitor for SemanticVerifier {
 
         let undeclared = Self::Result::combine_collection(results);
 
-        let usage = match identifier {
-            Identifier::VarAccess { name } => {
-                self.get_global(name)
-                    .map(|g| {
-                        match g {
-                            Declaration::Var { .. } => Ok(()),
-                            Declaration::Array { .. } => Err(Error::InvalidVariableUsage { name: name.to_owned() }.into()),
-                        }
-                    })
-                    .unwrap_or(Ok(()))
-                    .into()
-            },
-            Identifier::ArrAccess { name, index } => {
-                let main: ResultCombineErr<_, _> = self.get_global(name)
-                    .map(|g| {
-                        match g {
-                            Declaration::Var { .. } => Err(Error::InvalidVariableUsage { name: name.to_owned() }.into()),
-                            Declaration::Array { .. } => Ok(()),
-                        }
-                    })
-                    .unwrap_or(Err(Error::InvalidVariableUsage { name: name.to_owned() }.into())).into();
-                main.combine(
-                    self.get_global(index)
-                        .map(|g| {
-                            match g {
-                                Declaration::Var { .. } => Ok(()),
-                                Declaration::Array { .. } => Err(Error::InvalidVariableUsage { name: name.to_owned() }.into()),
-                            }
-                        })
-                        .unwrap_or(Ok(()))
-                        .into()
-                )
-            },
-            Identifier::ArrConstAccess { name, index } => {
-                self.get_global(name)
-                .map(|g| {
-                    match g {
-                        Declaration::Var { .. } => Err(Error::InvalidVariableUsage { name: name.to_owned() }.into()),
-                        Declaration::Array { start, end, .. } => {
-                            if index >= start && index <= end {
-                                Ok(())
-                            } else {
-                                Err(Error::InvalidVariableUsage { name: name.to_owned() }.into())
-                            }
-                        },
-                    }
-                })
-                .unwrap_or(Err(Error::InvalidVariableUsage { name: name.to_owned() }.into())).into()
-            },
-        };
+        let usage = self.check_identifier_usage(identifier);
 
         undeclared.combine(usage)
     }

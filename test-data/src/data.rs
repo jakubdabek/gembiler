@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use num_integer::Integer;
 
 pub struct Data {

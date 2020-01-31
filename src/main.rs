@@ -4,12 +4,21 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use virtual_machine::instruction::InstructionListPrinter;
+use gembiler::verifier;
 
 fn compile<P1: AsRef<Path>, P2: AsRef<Path>>(path: P1, output_path: P2) {
     let program = parser::parse_file(path);
 
     match program {
         Ok(program) => {
+            if let Err(errors) = verifier::verify(&program) {
+                for e in errors {
+                    println!("Error: {}", e);
+                }
+
+                return;
+            }
+
             let context = intermediate::generate(&program).unwrap();
             let generator = translator::Generator::new(context);
             let translated = generator.translate();

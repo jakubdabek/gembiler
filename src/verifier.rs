@@ -1,5 +1,6 @@
 use parser::ast::visitor::{ResultCombineErr, Visitable, Visitor, VisitorResult, VisitorResultVec};
 use parser::ast::*;
+use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug)]
 pub struct SemanticVerifier {
@@ -21,6 +22,17 @@ pub enum Error {
     InvalidArrayRange { name: String, start: i64, end: i64 },
     UndeclaredVariable { name: String },
     ForCounterModification { name: String },
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        use Error::*;
+        match self {
+            InvalidArrayRange { name, start, end } => write!(f, "invalid array range: {}({}:{})", name, start, end),
+            UndeclaredVariable { name } => write!(f, "undeclared variable {}", name),
+            ForCounterModification { name } => write!(f, "illegal modification of for loop counter {}", name),
+        }
+    }
 }
 
 pub fn verify(program: &Program) -> Result<(), Vec<Error>> {

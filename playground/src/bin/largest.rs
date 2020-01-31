@@ -58,7 +58,7 @@ fn main() {
         let f = move || {
             println!("{:?}", bruh);
             bruh.mystring = "1234";
-            &mut bruh
+//            &mut bruh
         };
 //        println!("{:?}", bruh);
         f

@@ -143,7 +143,8 @@ make_test!(fib_factorial);
 make_test!(tab);
 make_test!(mod_mult);
 make_test!(loopiii);
-make_test!(for_loop);
+//make_test!(for_loop);
+make_test!(ifs);
 
 #[test]
 #[ignore = "unknown result"]

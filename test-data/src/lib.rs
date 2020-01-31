@@ -154,9 +154,19 @@ pub fn get_all_programs() -> HashMap<String, ProgramData> {
         }),
     );
 
+//    programs.insert(
+//        String::from("for_loop"),
+//        generate_program_data(data::FOR_LOOP_DATA, vec![vec![12, 23, 34]]),
+//    );
+
     programs.insert(
-        String::from("for_loop"),
-        generate_program_data(data::FOR_LOOP_DATA, vec![vec![12, 23, 34]]),
+        String::from("ifs"),
+        generate_program_data(
+            data::IFS_DATA,
+            (-100..=100).flat_map(|v| {
+                vec![vec![v, v], vec![v, v - 1], vec![v, v + 1]].into_iter()
+            }).collect()
+        ),
     );
 
     programs

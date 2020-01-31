@@ -729,6 +729,69 @@ pub const FOR_LOOP_DATA: Data = Data {
     },
 };
 
+const IFS_TEXT: &str = r#"
+    DECLARE
+        a, b
+    BEGIN
+        READ a;
+        READ b;
+
+        IF a EQ b THEN
+            WRITE 1;
+        ELSE
+            WRITE 0;
+        ENDIF
+
+        IF a NEQ b THEN
+            WRITE 1;
+        ELSE
+            WRITE 0;
+        ENDIF
+
+        IF a LE b THEN
+            WRITE 1;
+        ELSE
+            WRITE 0;
+        ENDIF
+
+        IF a GE b THEN
+            WRITE 1;
+        ELSE
+            WRITE 0;
+        ENDIF
+
+        IF a LEQ b THEN
+            WRITE 1;
+        ELSE
+            WRITE 0;
+        ENDIF
+
+        IF a GEQ b THEN
+            WRITE 1;
+        ELSE
+            WRITE 0;
+        ENDIF
+    END
+"#;
+
+pub const IFS_DATA: Data = Data {
+    text: IFS_TEXT,
+    exec_fn: |mut input| {
+        let a = input.pop().expect("invalid input");
+        let b = input.pop().expect("invalid input");
+
+        vec![
+            if a == b { 1 } else { 0 },
+            if a != b { 1 } else { 0 },
+            if a <  b { 1 } else { 0 },
+            if a >  b { 1 } else { 0 },
+            if a <= b { 1 } else { 0 },
+            if a >= b { 1 } else { 0 },
+        ]
+    }
+};
+
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -910,7 +973,16 @@ mod test {
     }
 
     #[test]
-    fn for_test() {
+    fn for_loop_test() {
         assert_eq!(FOR_LOOP_DATA.exec(vec![12, 23, 34]), &[507, 4379, 0]);
+    }
+
+    #[test]
+    fn ifs_test() {
+        for i in -1000..=1000 {
+            assert_eq!(IFS_DATA.exec(vec![i, i]), &[1, 0, 0, 0, 1, 1]);
+            assert_eq!(IFS_DATA.exec(vec![i, i - 1]), &[0, 1, 0, 1, 0, 1]);
+            assert_eq!(IFS_DATA.exec(vec![i, i + 1]), &[0, 1, 1, 0, 1, 0]);
+        }
     }
 }

@@ -115,6 +115,12 @@ impl<T> From<Vec<T>> for VisitorResultVec<T> {
     }
 }
 
+impl<T> From<T> for VisitorResultVec<T> {
+    fn from(v: T) -> Self {
+        Self(vec![v])
+    }
+}
+
 impl<T> Into<Vec<T>> for VisitorResultVec<T> {
     fn into(self) -> Vec<T> {
         self.0

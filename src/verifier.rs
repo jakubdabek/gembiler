@@ -22,6 +22,7 @@ pub enum Error {
     InvalidArrayRange { name: String, start: i64, end: i64 },
     UndeclaredVariable { name: String },
     ForCounterModification { name: String },
+    InvalidVariableUsage { name: String },
 }
 
 impl Display for Error {
@@ -31,14 +32,15 @@ impl Display for Error {
             InvalidArrayRange { name, start, end } => write!(f, "invalid array range: {}({}:{})", name, start, end),
             UndeclaredVariable { name } => write!(f, "undeclared variable {}", name),
             ForCounterModification { name } => write!(f, "illegal modification of for loop counter {}", name),
+            InvalidVariableUsage { name } => write!(f, "invalid variable usage: {}", name),
         }
     }
 }
 
-pub fn verify(program: &Program) -> Result<(), Vec<Error>> {
+pub fn verify(program: Program) -> Result<Program, Vec<Error>> {
     let mut verifier = SemanticVerifier::new();
     let result = program.accept(&mut verifier);
-    result.into_result().map_err(|v| v.into_vec())
+    result.into_result().map(|_| program).map_err(|v| v.into_vec())
 }
 
 impl SemanticVerifier {
@@ -159,6 +161,59 @@ impl<'a> Visitor for SemanticVerifier {
                 .into()
         });
 
-        Self::Result::combine_collection(results)
+        let undeclared = Self::Result::combine_collection(results);
+
+        let usage = match identifier {
+            Identifier::VarAccess { name } => {
+                self.get_global(name)
+                    .map(|g| {
+                        match g {
+                            Declaration::Var { .. } => Ok(()),
+                            Declaration::Array { .. } => Err(Error::InvalidVariableUsage { name: name.to_owned() }.into()),
+                        }
+                    })
+                    .unwrap_or(Ok(()))
+                    .into()
+            },
+            Identifier::ArrAccess { name, index } => {
+                let main: ResultCombineErr<_, _> = self.get_global(name)
+                    .map(|g| {
+                        match g {
+                            Declaration::Var { .. } => Err(Error::InvalidVariableUsage { name: name.to_owned() }.into()),
+                            Declaration::Array { .. } => Ok(()),
+                        }
+                    })
+                    .unwrap_or(Err(Error::InvalidVariableUsage { name: name.to_owned() }.into())).into();
+                main.combine(
+                    self.get_global(index)
+                        .map(|g| {
+                            match g {
+                                Declaration::Var { .. } => Ok(()),
+                                Declaration::Array { .. } => Err(Error::InvalidVariableUsage { name: name.to_owned() }.into()),
+                            }
+                        })
+                        .unwrap_or(Ok(()))
+                        .into()
+                )
+            },
+            Identifier::ArrConstAccess { name, index } => {
+                self.get_global(name)
+                .map(|g| {
+                    match g {
+                        Declaration::Var { .. } => Err(Error::InvalidVariableUsage { name: name.to_owned() }.into()),
+                        Declaration::Array { start, end, .. } => {
+                            if index >= start && index <= end {
+                                Ok(())
+                            } else {
+                                Err(Error::InvalidVariableUsage { name: name.to_owned() }.into())
+                            }
+                        },
+                    }
+                })
+                .unwrap_or(Err(Error::InvalidVariableUsage { name: name.to_owned() }.into())).into()
+            },
+        };
+
+        undeclared.combine(usage)
     }
 }

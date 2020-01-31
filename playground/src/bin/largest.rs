@@ -41,8 +41,27 @@ fn main() {
     let result = chars.largest().unwrap();
     println!("The largest char is {}", result);
 
-    let f = move || {
+    let f: &dyn Fn() = &move || {
         println!("{:?}", bruh);
+    };
+
+//    let f: &mut dyn FnMut() = &mut move || {
+//        println!("{:?}", bruh);
+//        // drop(bruh);
+//    };
+
+    f();
+    f();
+
+    let mut f = {
+        let mut bruh = Bruh { mystring: "123" };
+        let f = move || {
+            println!("{:?}", bruh);
+            bruh.mystring = "1234";
+            &mut bruh
+        };
+//        println!("{:?}", bruh);
+        f
     };
 
     f();

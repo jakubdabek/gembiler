@@ -65,6 +65,8 @@ pub fn get_all_programs() -> HashMap<String, ProgramData> {
                 vec![27],
                 vec![64],
                 vec![123_456_543_210],
+                vec![12345678901],
+                vec![12345678903],
             ];
 
             base.extend(std::iter::repeat_with(|| vec![dist.sample(&mut rng)]).take(4));
@@ -163,7 +165,7 @@ pub fn get_all_programs() -> HashMap<String, ProgramData> {
         String::from("ifs"),
         generate_program_data(
             data::IFS_DATA,
-            (-100..=100).flat_map(|v| {
+            (-15..=15).flat_map(|v| {
                 vec![vec![v, v], vec![v, v - 1], vec![v, v + 1]].into_iter()
             }).collect()
         ),

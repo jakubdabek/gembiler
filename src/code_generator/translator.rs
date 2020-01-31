@@ -1,8 +1,5 @@
-use crate::code_generator::intermediate::{
-    Access, Constant, Context, Instruction, Label, UniqueVariable, Variable, VariableIndex,
-};
+use crate::code_generator::intermediate::{Access, Constant, Context, Instruction, Label, UniqueVariable, Variable, VariableIndex, OperationType};
 use ::virtual_machine::instruction::Instruction as VmInstruction;
-use parser::ast::ExprOp;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
@@ -379,7 +376,119 @@ impl Generator {
         location
     }
 
-    fn translate_multiplication(&mut self, operand: MemoryLocation) {
+    fn translate_load_zero(&mut self) {
+        self.instruction_manager.instr_Sub(MemoryLocation(0));
+    }
+
+    fn translate_optimized_multiplication(&mut self, left: &Access, right: &Access) -> bool {
+        match (left, right) {
+            (Access::Constant(c), other)
+            | (other, Access::Constant(c)) => {
+                match c.value() {
+                    0 => {
+                        self.instruction_manager.instr_Sub(MemoryLocation(0));
+                        true
+                    },
+                    1 => {
+                        self.translate_load_access(other);
+                        true
+                    },
+                    -1 => {
+                        self.translate_load_access(other);
+                        self.translate_neg_tmp();
+                        true
+                    }
+                    2 => {
+                        self.translate_load_access(other);
+                        self.instruction_manager.instr_Shift(self.get_constant_location(1));
+                        true
+                    }
+                    -2 => {
+                        self.translate_load_access(other);
+                        self.instruction_manager.instr_Shift(self.get_constant_location(1));
+                        self.translate_neg_tmp();
+                        true
+                    }
+                    // n if (n.abs() as u64).is_power_of_two() => {}
+                    _ => false
+                }
+            }
+            _ => false,
+        }
+    }
+
+    fn translate_optimized_div_mod(&mut self, left: &Access, right: &Access, div: bool) -> bool {
+        match (left, right) {
+            (Access::Constant(c1), Access::Constant(c2)) => {
+                if div {
+                    let v1 = c1.value();
+                    let v2 = c2.value();
+
+                    match (v1.signum(), v2.signum()) {
+                        (0, _) | (_, 0) => {
+                            self.translate_load_zero();
+                            true
+                        },
+                        _ => false
+                    }
+                } else {
+                    false
+                }
+            }
+            (Access::Constant(c), _other) => {
+                match c.value() {
+                    0 => {
+                        self.instruction_manager.instr_Sub(MemoryLocation(0));
+                        true
+                    }
+                    // n if (n.abs() as u64).is_power_of_two() => {}
+                    _ => false
+                }
+            }
+            (other, Access::Constant(c)) => {
+                match c.value() {
+                    0 => {
+                        self.translate_load_zero();
+                        true
+                    },
+                    1 => {
+                        self.translate_load_access(other);
+                        true
+                    },
+                    -1 => {
+                        self.translate_load_access(other);
+                        self.translate_neg_tmp();
+                        true
+                    }
+                    2 => {
+                        if div {
+                            self.translate_load_access(other);
+                            self.instruction_manager.instr_Shift(self.get_constant_location(-1));
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    -2 => {
+                        if div {
+                            self.translate_load_access(other);
+                            self.instruction_manager.instr_Shift(self.get_constant_location(-1));
+                            self.translate_neg_tmp();
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    // n if (n.abs() as u64).is_power_of_two() => {}
+                    _ => false
+                }
+            }
+            _ => false,
+        }
+    }
+
+
+    fn translate_multiplication(&mut self, left: &Access, right: &Access) {
         /*
             if b == 0 { goto end }
             if b < 0 {
@@ -397,10 +506,15 @@ impl Generator {
             p0 = result
             end: return p0
         */
-        let left = self.get_or_register_temp("mul_left");
-        let right_tmp = self.get_or_register_temp("op");
+
+        if self.translate_optimized_multiplication(left, right) {
+            return;
+        }
+
+        let left_tmp = self.get_or_register_temp("mul_left");
+        let right_tmp = self.get_or_register_temp("mul_right");
         let tmp = self.get_or_register_temp("1");
-        let result = self.get_or_register_temp("result");
+        let result = self.get_or_register_temp("mul_result");
         let const_1 = self.get_constant_location(1);
         let const_neg_1 = self.get_constant_location(-1);
 
@@ -410,25 +524,27 @@ impl Generator {
         let label_end = self.context.new_label();
         let label_real_end = self.context.new_label();
 
-        self.instruction_manager.instr_Store(left);
-        self.instruction_manager.instr_Load(operand);
+        self.translate_load_access(left);
+        self.instruction_manager.instr_Store(left_tmp);
+        self.translate_load_access(right);
+        self.instruction_manager.instr_Store(right_tmp);
         self.instruction_manager
             .translate_jump(&label_real_end, VmInstruction::Jzero);
         self.instruction_manager
             .translate_jump(&label_start, VmInstruction::Jpos);
-        self.instruction_manager.instr_Sub(operand);
-        self.instruction_manager.instr_Sub(operand);
+
+        self.translate_neg_tmp();
         self.instruction_manager.instr_Store(right_tmp);
-        self.instruction_manager.instr_Load(left);
-        self.instruction_manager.instr_Sub(left);
-        self.instruction_manager.instr_Sub(left);
-        self.instruction_manager.instr_Store(left);
+        self.instruction_manager.instr_Load(left_tmp);
+        self.translate_neg(left_tmp);
+        self.instruction_manager.instr_Store(left_tmp);
+
         self.instruction_manager.instr_Load(right_tmp);
-        // label start
+
         self.instruction_manager.translate_label(&label_start);
         self.instruction_manager.instr_Sub(MemoryLocation(0));
         self.instruction_manager.instr_Store(result);
-        // label main
+
         self.instruction_manager.translate_label(&label_main);
         self.instruction_manager.instr_Load(right_tmp);
         self.instruction_manager.instr_Store(tmp);
@@ -437,24 +553,27 @@ impl Generator {
         self.instruction_manager.instr_Sub(tmp);
         self.instruction_manager
             .translate_jump(&label_step, VmInstruction::Jzero);
-        self.instruction_manager.instr_Load(left);
+
+        self.instruction_manager.instr_Load(left_tmp);
         self.instruction_manager.instr_Add(result);
         self.instruction_manager.instr_Store(result);
-        // label step
+
         self.instruction_manager.translate_label(&label_step);
         self.instruction_manager.instr_Load(right_tmp);
         self.instruction_manager.instr_Shift(const_neg_1);
         self.instruction_manager
             .translate_jump(&label_end, VmInstruction::Jzero);
+
         self.instruction_manager.instr_Store(right_tmp);
-        self.instruction_manager.instr_Load(left);
+        self.instruction_manager.instr_Load(left_tmp);
         self.instruction_manager.instr_Shift(const_1);
-        self.instruction_manager.instr_Store(left);
+        self.instruction_manager.instr_Store(left_tmp);
         self.instruction_manager
             .translate_jump(&label_main, VmInstruction::Jump);
-        // label end
+
         self.instruction_manager.translate_label(&label_end);
         self.instruction_manager.instr_Load(result);
+
         self.instruction_manager.translate_label(&label_real_end);
     }
 
@@ -513,7 +632,7 @@ impl Generator {
         self.translate_neg(tmp);
     }
 
-    fn translate_div_mod(&mut self, operand: MemoryLocation, div: bool) {
+    fn translate_div_mod(&mut self, left: &Access, right: &Access, div: bool) {
         /*
             if(divisor == 0)
                 return (0, 0);
@@ -543,6 +662,10 @@ impl Generator {
             return (result, remain)
         */
 
+        if self.translate_optimized_div_mod(left, right, div) {
+            return;
+        }
+
         let label_while_condition = self.context.new_label();
         let label_while_body = self.context.new_label();
         // let label_after_while = self.context.new_label();
@@ -566,12 +689,13 @@ impl Generator {
         let result = self.get_or_register_temp("div_result");
         let multiple = self.get_or_register_temp("div_multiple");
 
+        self.translate_load_access(left);
         self.instruction_manager.instr_Store(original_dividend);
         self.translate_abs(original_dividend);
         self.instruction_manager.instr_Store(dividend_abs);
         self.instruction_manager.instr_Store(remain);
 
-        self.instruction_manager.instr_Load(operand);
+        self.translate_load_access(right);
         self.instruction_manager
             .translate_jump(&label_end, VmInstruction::Jzero);
         // self.instruction_manager.instr_Dec();
@@ -749,6 +873,149 @@ impl Generator {
         self.instruction_manager.translate_label(&label_end);
     }
 
+    fn translate_load_access(&mut self, access: &Access) {
+        match access {
+            Access::Constant(c) => {
+                let loc = self.get_constant_location(c.value());
+                self.instruction_manager.instr_Load(loc);
+            }
+            Access::Variable(ind) => {
+                let loc = self.memory.get_location(*ind);
+                self.instruction_manager.instr_Load(loc);
+            }
+            Access::ArrayStatic(arr, c) => {
+                let real_arr_loc = self.memory.storage[arr].1.expect("unallocated array");
+                self.instruction_manager
+                    .instr_Load(MemoryLocation((real_arr_loc + c.value()) as u64));
+            }
+            Access::ArrayDynamic(arr, ind) => {
+                let arr_loc = self.memory.get_location(*arr);
+                let ind_loc = self.memory.get_location(*ind);
+
+                self.instruction_manager.instr_Load(arr_loc);
+                self.instruction_manager.instr_Add(ind_loc);
+                self.instruction_manager.instr_Loadi(MemoryLocation(0));
+            }
+        }
+    }
+
+    fn translate_store_access(&mut self, access: &Access) {
+        match access {
+            Access::Constant(_) => panic!("can't store into a constant"),
+            Access::Variable(ind) => {
+                let loc = self.memory.get_location(*ind);
+                self.instruction_manager.instr_Store(loc);
+            }
+            Access::ArrayStatic(arr, c) => {
+                let real_arr_loc = self.memory.storage[arr].1.expect("unallocated array");
+                self.instruction_manager
+                    .instr_Store(MemoryLocation((real_arr_loc + c.value()) as u64));
+            }
+            Access::ArrayDynamic(arr, ind) => {
+                let tmp1 = self.get_or_register_temp("store_tmp1");
+                self.instruction_manager.instr_Store(tmp1);
+
+                let arr_loc = self.memory.get_location(*arr);
+                let ind_loc = self.memory.get_location(*ind);
+
+                self.instruction_manager.instr_Load(arr_loc);
+                self.instruction_manager.instr_Add(ind_loc);
+
+                let tmp2 = self.get_or_register_temp("store_tmp2");
+                self.instruction_manager.instr_Store(tmp2);
+
+                self.instruction_manager.instr_Load(tmp1);
+                self.instruction_manager.instr_Storei(tmp2);
+            }
+        }
+    }
+
+    fn translate_plus(&mut self, left: &Access, right: &Access) {
+        let optimized = match (left, right) {
+            (Access::Constant(c), other)
+            | (other, Access::Constant(c)) => {
+                match c.value() {
+                    0 => {
+                        self.translate_load_access(other);
+                        true
+                    },
+                    n if n > 0 && n <= 10 => {
+                        self.translate_load_access(other);
+                        for _ in 0..n {
+                            self.instruction_manager.instr_Inc();
+                        }
+                        true
+                    }
+                    n if n < 0 && n >= -10 => {
+                        self.translate_load_access(other);
+                        for _ in 0..n.abs() {
+                            self.instruction_manager.instr_Dec();
+                        }
+                        true
+                    }
+                    _ => false
+                }
+            }
+            _ => false,
+        };
+
+        if !optimized {
+            self.translate_simple_bin_op(left, right, InstructionManager::instr_Add);
+        }
+    }
+
+    fn translate_minus(&mut self, left: &Access, right: &Access) {
+        let optimized = match (left, right) {
+            (other, Access::Constant(c)) => {
+                match c.value() {
+                    0 => {
+                        self.translate_load_access(other);
+                        true
+                    },
+                    n if n > 0 && n <= 10 => {
+                        self.translate_load_access(other);
+                        for _ in 0..n {
+                            self.instruction_manager.instr_Dec();
+                        }
+                        true
+                    }
+                    n if n < 0 && n >= -10 => {
+                        self.translate_load_access(other);
+                        for _ in 0..n.abs() {
+                            self.instruction_manager.instr_Inc();
+                        }
+                        true
+                    }
+                    _ => false
+                }
+            }
+            (Access::Constant(c), other) => {
+                match c.value() {
+                    0 => {
+                        self.translate_load_access(other);
+                        self.translate_neg_tmp();
+                        true
+                    }
+                    _ => false,
+                }
+            }
+            _ => false,
+        };
+
+        if !optimized {
+            self.translate_simple_bin_op(left, right, InstructionManager::instr_Sub);
+        }
+    }
+
+    fn translate_simple_bin_op(&mut self, left: &Access, right: &Access, op: fn(&mut InstructionManager, MemoryLocation)) {
+        self.translate_load_access(right);
+        let tmp = self.get_or_register_temp("bin_op");
+        self.instruction_manager.instr_Store(tmp);
+
+        self.translate_load_access(left);
+        op(&mut self.instruction_manager, tmp);
+    }
+
     pub fn translate(mut self) -> Vec<VmInstruction> {
         let simple_constants = vec![
             Constant(0),
@@ -772,85 +1039,33 @@ impl Generator {
                 Instruction::Label { label } => {
                     self.instruction_manager.translate_label(label);
                 }
-                Instruction::Load { access } => match access {
-                    Access::Constant(c) => {
-                        let ind = self.context.get_constant_index(c);
-                        let loc = self.memory.get_location(ind);
-                        self.instruction_manager.instr_Load(loc);
-                    }
-                    Access::Variable(ind) => {
-                        let loc = self.memory.get_location(*ind);
-                        self.instruction_manager.instr_Load(loc);
-                    }
-                    Access::ArrayStatic(arr, c) => {
-                        let real_arr_loc = self.memory.storage[arr].1.expect("unallocated array");
-                        self.instruction_manager
-                            .instr_Load(MemoryLocation((real_arr_loc + c.value()) as u64));
-                    }
-                    Access::ArrayDynamic(arr, ind) => {
-                        let arr_loc = self.memory.get_location(*arr);
-                        let ind_loc = self.memory.get_location(*ind);
-
-                        self.instruction_manager.instr_Load(arr_loc);
-                        self.instruction_manager.instr_Add(ind_loc);
-                        self.instruction_manager.instr_Loadi(MemoryLocation(0));
-                    }
-                },
+                Instruction::Load { access } => self.translate_load_access(access),
                 Instruction::PreStore { access } => {
                     match access {
                         Access::Constant(_) | Access::Variable(_) | Access::ArrayStatic(_, _) => (),
                         Access::ArrayDynamic(_, _) => (), // unimplemented!(),
                     }
                 }
-                Instruction::Store { access } => match access {
-                    Access::Constant(_) => panic!("can't store into a constant"),
-                    Access::Variable(ind) => {
-                        let loc = self.memory.get_location(*ind);
-                        self.instruction_manager.instr_Store(loc);
-                    }
-                    Access::ArrayStatic(arr, c) => {
-                        let real_arr_loc = self.memory.storage[arr].1.expect("unallocated array");
-                        self.instruction_manager
-                            .instr_Store(MemoryLocation((real_arr_loc + c.value()) as u64));
-                    }
-                    Access::ArrayDynamic(arr, ind) => {
-                        let tmp = self
-                            .context
-                            .find_variable_by_name("tmp$1")
-                            .expect("tmp$1 unavailable");
-                        let tmp_loc = self.memory.get_location(tmp.id());
-                        self.instruction_manager.instr_Store(tmp_loc);
-
-                        let arr_loc = self.memory.get_location(*arr);
-                        let ind_loc = self.memory.get_location(*ind);
-
-                        self.instruction_manager.instr_Load(arr_loc);
-                        self.instruction_manager.instr_Add(ind_loc);
-
-                        let tmp2 = self
-                            .context
-                            .find_variable_by_name("tmp$2")
-                            .expect("tmp$2 unavailable");
-                        let tmp2_loc = self.memory.get_location(tmp2.id());
-                        self.instruction_manager.instr_Store(tmp2_loc);
-
-                        self.instruction_manager.instr_Load(tmp_loc);
-                        self.instruction_manager.instr_Storei(tmp2_loc);
-                    }
-                },
-                Instruction::Operation { op, operand } => {
-                    let operand = self.memory.get_location(*operand);
+                Instruction::Store { access } => self.translate_store_access(access),
+                Instruction::Operation { left, op, right } => {
                     match op {
-                        ExprOp::Plus => self.instruction_manager.instr_Add(operand),
-                        ExprOp::Minus => self.instruction_manager.instr_Sub(operand),
-                        ExprOp::Times => {
-                            self.translate_multiplication(operand);
+                        OperationType::Plus => {
+                            self.translate_plus(left, right)
                         }
-                        ExprOp::Div => {
-                            self.translate_div_mod(operand, true);
+                        OperationType::Minus => {
+                           self.translate_minus(left, right)
                         }
-                        ExprOp::Mod => {
-                            self.translate_div_mod(operand, false);
+                        OperationType::Shift => {
+                            self.translate_simple_bin_op(left, right, InstructionManager::instr_Shift)
+                        }
+                        OperationType::Times => {
+                            self.translate_multiplication(left, right);
+                        }
+                        OperationType::Div => {
+                            self.translate_div_mod(left, right, true);
+                        }
+                        OperationType::Mod => {
+                            self.translate_div_mod(left, right, false);
                         }
                     }
                 }

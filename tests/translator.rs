@@ -90,7 +90,7 @@ fn check_success(code: &str, input: Vec<MemoryValue>, expected: &[MemoryValue]) 
     // let run_result = virtual_machine::interpreter::run_extended(translated, input);
 
     println!("{:?}", run_result);
-    // println!("{}", logs.join("\n"));
+//     println!("{}", logs.join("\n"));
 
     let (_cost, output) = run_result.unwrap();
 

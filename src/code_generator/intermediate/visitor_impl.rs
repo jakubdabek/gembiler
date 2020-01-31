@@ -262,14 +262,14 @@ impl Visitor for CodeGenerator {
         op: &ast::ExprOp,
         right: &ast::Value,
     ) -> Self::Result {
-        self.visit(right);
-        self.emit_load_visited();
-        let temp = self.emit_temporary_store();
         self.visit(left);
-        self.emit_load_visited();
+        let left = self.pop_access();
+        self.visit(right);
+        let right = self.pop_access();
         self.emit(Instruction::Operation {
-            op: *op,
-            operand: temp,
+            left,
+            op: (*op).into(),
+            right,
         });
     }
 

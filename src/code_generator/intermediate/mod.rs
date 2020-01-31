@@ -28,6 +28,28 @@ pub enum Access {
     ArrayDynamic(VariableIndex, VariableIndex),
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum OperationType {
+    Plus,
+    Minus,
+    Times,
+    Div,
+    Mod,
+    Shift,
+}
+
+impl From<ast::ExprOp> for OperationType {
+    fn from(op: ast::ExprOp) -> Self {
+        match op {
+            ast::ExprOp::Plus => OperationType::Plus,
+            ast::ExprOp::Minus => OperationType::Minus,
+            ast::ExprOp::Times => OperationType::Times,
+            ast::ExprOp::Div => OperationType::Div,
+            ast::ExprOp::Mod => OperationType::Mod,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Instruction {
     Label {
@@ -51,9 +73,10 @@ pub enum Instruction {
     // StoreDirect { variable: VariableIndex }, // var <- p0
     // StoreIndirect { variable: VariableIndex }, // [var] <- p0
     Operation {
-        op: ast::ExprOp,
-        operand: VariableIndex,
-    }, // p0 <- p0 <op> operand
+        left: Access,
+        op: OperationType,
+        right: Access,
+    },
 
     Jump {
         label: Label,
@@ -260,6 +283,10 @@ impl CodeGenerator {
         self.access_stack.0.push(access);
     }
 
+    fn pop_access(&mut self) -> Access {
+        self.access_stack.pop()
+    }
+
     fn emit(&mut self, instruction: Instruction) {
         self.context.instructions.push(instruction)
     }
@@ -278,13 +305,13 @@ impl CodeGenerator {
         let access = self.access_stack.pop();
         self.emit(Instruction::Store { access });
     }
-
-    fn emit_temporary_store(&mut self) -> VariableIndex {
-        let index = self.find_variable_by_name("tmp$op").unwrap().id();
-        let access = Access::Variable(index);
-        self.emit(Instruction::Store { access });
-        index
-    }
+//
+//    fn emit_temporary_store(&mut self) -> VariableIndex {
+//        let index = self.find_variable_by_name("tmp$op").unwrap().id();
+//        let access = Access::Variable(index);
+//        self.emit(Instruction::Store { access });
+//        index
+//    }
 
     fn new_label(&mut self) -> Label {
         self.context.new_label()

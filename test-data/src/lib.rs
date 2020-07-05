@@ -34,6 +34,7 @@ pub fn get_all_programs() -> HashMap<String, ProgramData> {
     let mut rng = rand::rngs::StdRng::seed_from_u64(420);
 
     let dist = Uniform::new(1, 1_000_000_000);
+    let dist_small = Uniform::new(1, 1_000);
     programs.insert(
         String::from("bitstring"),
         generate_program_data(data::BITSTRING_DATA, {
@@ -53,8 +54,9 @@ pub fn get_all_programs() -> HashMap<String, ProgramData> {
         String::from("sieve"),
         generate_program_data(data::SIEVE_DATA, vec![vec![]]),
     );
+
     programs.insert(
-        String::from("prime_decomposition"),
+        String::from("prime_decomposition_small"),
         generate_program_data(data::PRIME_DECOMPOSITION_DATA, {
             let mut base = vec![
                 vec![2],
@@ -64,14 +66,37 @@ pub fn get_all_programs() -> HashMap<String, ProgramData> {
                 vec![25],
                 vec![27],
                 vec![64],
-                vec![123_456_543_210],
-                vec![12345678901],
-                vec![12345678903],
             ];
 
-            base.extend(std::iter::repeat_with(|| vec![dist.sample(&mut rng)]).take(4));
+            base.extend(std::iter::repeat_with(|| vec![dist_small.sample(&mut rng)]).take(4));
 
             base
+        }),
+    );
+
+    programs.insert(
+        String::from("prime_decomposition_large1"),
+        generate_program_data(data::PRIME_DECOMPOSITION_DATA, {
+            std::iter::repeat_with(|| vec![dist.sample(&mut rng)]).take(4).collect()
+        }),
+    );
+
+    programs.insert(
+        String::from("prime_decomposition_large2"),
+        generate_program_data(data::PRIME_DECOMPOSITION_DATA, {
+            vec![
+                vec![123_456_543_210],
+                vec![12_345_678_901],
+            ]
+        }),
+    );
+
+    programs.insert(
+        String::from("prime_decomposition_large3"),
+        generate_program_data(data::PRIME_DECOMPOSITION_DATA, {
+            vec![
+                vec![12_345_678_903],
+            ]
         }),
     );
 

@@ -86,11 +86,12 @@ fn check_success(code: &str, input: Vec<MemoryValue>, expected: &[MemoryValue]) 
 
     let generator = Generator::new(ir.unwrap());
     let translated = generator.translate();
-    let (run_result, logs) = virtual_machine::interpreter::run_debug(translated, input, true);
-    // let run_result = virtual_machine::interpreter::run_extended(translated, input);
+    // println!("{:#?}", translated);
+    // let (run_result, logs) = virtual_machine::interpreter::run_debug(translated, input, false);
+    let run_result = virtual_machine::interpreter::run(translated, input);
 
     println!("{:?}", run_result);
-//     println!("{}", logs.join("\n"));
+    // println!("{}", logs.join("\n"));
 
     let (_cost, output) = run_result.unwrap();
 
@@ -133,7 +134,10 @@ macro_rules! make_test {
 
 make_test!(bitstring);
 make_test!(sieve);
-make_test!(prime_decomposition);
+make_test!(prime_decomposition_small);
+make_test!(prime_decomposition_large1);
+make_test!(prime_decomposition_large2);
+make_test!(prime_decomposition_large3);
 make_test!(div_mod);
 make_test!(div_mod2);
 make_test!(numbers);
